@@ -19,17 +19,17 @@ import { useAuth } from "@/context/AuthContext";
 import { STRINGS } from "@/constants/strings";
 
 const DEMO_ACCOUNTS = [
-  { label: "عميل", phone: "0501234567", pass: "1234", icon: "user", color: "#2196f3" },
-  { label: "مزودة (موثقة)", phone: "0501234001", pass: "1234", icon: "scissors", color: "#9c27b0" },
-  { label: "مزودة (قيد المراجعة)", phone: "0501234005", pass: "1234", icon: "clock", color: "#ff9800" },
-  { label: "أدمن", phone: "0500000000", pass: "admin123", icon: "shield", color: "#c8a951" },
+  { label: "عميل", phone: "1", pass: "1234", icon: "user", color: "#2196f3" },
+  { label: "مزودة (موثقة)", phone: "2", pass: "1234", icon: "scissors", color: "#9c27b0" },
+  { label: "مزودة (قيد المراجعة)", phone: "3", pass: "1234", icon: "clock", color: "#ff9800" },
+  { label: "أدمن", phone: "4", pass: "1234", icon: "shield", color: "#c8a951" },
 ];
 
 export default function LoginScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { login, isLoading } = useAuth();
-  const [phone, setPhone] = useState("0501234567");
+  const [phone, setPhone] = useState("1");
   const [password, setPassword] = useState("1234");
   const [showPass, setShowPass] = useState(false);
   const [showDemo, setShowDemo] = useState(false);
