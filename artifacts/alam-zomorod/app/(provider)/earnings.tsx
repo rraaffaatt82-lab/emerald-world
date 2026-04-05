@@ -209,7 +209,7 @@ export default function ProviderEarningsScreen() {
                     placeholderTextColor={colors.mutedForeground}
                     textAlign="right"
                   />
-                  <Text style={[styles.currencyLabel, { color: colors.mutedForeground }]}>ريال</Text>
+                  <Text style={[styles.currencyLabel, { color: colors.mutedForeground }]}>د.أ</Text>
                 </View>
 
                 <View style={styles.quickAmounts}>
@@ -250,7 +250,7 @@ export default function ProviderEarningsScreen() {
                 </TouchableOpacity>
 
                 <Text style={[styles.minNote, { color: colors.mutedForeground }]}>
-                  الحد الأدنى للشحن: 50 ريال
+                  الحد الأدنى للشحن: 50 د.أ
                 </Text>
               </>
             )}

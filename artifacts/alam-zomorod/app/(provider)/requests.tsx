@@ -99,7 +99,7 @@ export default function ProviderRequestsScreen() {
     if (!offerModal || !user) return;
     const price = parseFloat(offerPrice);
     if (isNaN(price) || price < 30) {
-      setOfferError("يرجى إدخال سعر صحيح (30 ريال كحد أدنى)");
+      setOfferError("يرجى إدخال سعر صحيح (30 د.أ كحد أدنى)");
       return;
     }
     if (!provider) return;
@@ -291,7 +291,7 @@ export default function ProviderRequestsScreen() {
                 </Text>
               </View>
 
-              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>سعر العرض (ريال)</Text>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>سعر العرض (د.أ)</Text>
               <View style={[styles.priceInput, { borderColor: offerError ? colors.destructive : colors.border, backgroundColor: colors.muted }]}>
                 <TextInput
                   style={[styles.priceText, { color: colors.foreground }]}

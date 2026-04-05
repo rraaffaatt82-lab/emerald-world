@@ -85,7 +85,7 @@ export default function AdminSettingsScreen() {
         />
         <SettingField
           icon="dollar-sign"
-          label="الحد الأدنى للعرض (ريال)"
+          label="الحد الأدنى للعرض (د.أ)"
           value={minOffer}
           onChange={setMinOffer}
           desc="أقل مبلغ يمكن لمزود الخدمة تقديمه كعرض"

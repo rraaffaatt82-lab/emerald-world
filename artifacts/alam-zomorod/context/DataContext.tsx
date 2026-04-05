@@ -594,7 +594,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const addNotification = useCallback((n: Omit<Notification, "id" | "createdAt">) => {
     setNotifications((prev) => {
-      const newN: Notification = { ...n, id: "n" + Date.now(), createdAt: new Date().toISOString() };
+      const newN: Notification = { ...n, id: "n" + Date.now() + Math.random().toString(36).slice(2, 7), createdAt: new Date().toISOString() };
       const updated = [newN, ...prev];
       save(NOTIF_KEY, updated);
       return updated;
@@ -620,7 +620,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const addRequest = useCallback((req: Omit<ServiceRequest, "id" | "createdAt" | "offers" | "contactRevealed">): ServiceRequest => {
     const newReq: ServiceRequest = {
       ...req,
-      id: "r" + Date.now(),
+      id: "r" + Date.now() + Math.random().toString(36).slice(2, 7),
       createdAt: new Date().toISOString(),
       offers: [],
       contactRevealed: false,
@@ -646,7 +646,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const newOffer: Offer = {
       ...offer,
       providerFirstName: firstName,
-      id: "of" + Date.now(),
+      id: "of" + Date.now() + Math.random().toString(36).slice(2, 7),
       submittedAt: new Date().toISOString(),
       status: "pending",
     };
@@ -820,7 +820,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const requestWalletTopup = useCallback((providerId: string, providerName: string, amount: number, note?: string) => {
     const newReq: WalletTopupRequest = {
-      id: "wt" + Date.now(), providerId, providerName, amount,
+      id: "wt" + Date.now() + Math.random().toString(36).slice(2, 7), providerId, providerName, amount,
       status: "pending", createdAt: new Date().toISOString(), note,
     };
     setWalletTopupRequests((prev) => {
@@ -930,7 +930,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const addPackage = useCallback((pkg: Omit<ServicePackage, "id" | "createdAt" | "status">) => {
     setPackages((prev) => {
-      const newPkg: ServicePackage = { ...pkg, id: "pk" + Date.now(), createdAt: new Date().toISOString(), status: "pending" };
+      const newPkg: ServicePackage = { ...pkg, id: "pk" + Date.now() + Math.random().toString(36).slice(2, 7), createdAt: new Date().toISOString(), status: "pending" };
       const updated = [newPkg, ...prev];
       save(PACKAGES_KEY, updated);
       return updated;
