@@ -575,16 +575,20 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         AsyncStorage.getItem(PACKAGES_KEY),
         AsyncStorage.getItem(CUSTOM_SVCS_KEY),
       ]);
+      const dedup = <T extends { id: string }>(arr: T[]): T[] => {
+        const seen = new Set<string>();
+        return arr.filter((x) => { if (seen.has(x.id)) return false; seen.add(x.id); return true; });
+      };
       if (favStr) setFavorites(JSON.parse(favStr));
-      if (reqStr) setRequests(JSON.parse(reqStr));
-      if (provStr) setProviders(JSON.parse(provStr));
-      if (walStr) setWalletTransactions(JSON.parse(walStr));
+      if (reqStr) setRequests(dedup(JSON.parse(reqStr)));
+      if (provStr) setProviders(dedup(JSON.parse(provStr)));
+      if (walStr) setWalletTransactions(dedup(JSON.parse(walStr)));
       if (setStr) setSystemSettings(JSON.parse(setStr));
-      if (notifStr) setNotifications(JSON.parse(notifStr));
-      if (cpnStr) setCoupons(JSON.parse(cpnStr));
-      if (topStr) setWalletTopupRequests(JSON.parse(topStr));
-      if (pkgStr) setPackages(JSON.parse(pkgStr));
-      if (csvcStr) setCustomProviderServices(JSON.parse(csvcStr));
+      if (notifStr) setNotifications(dedup(JSON.parse(notifStr)));
+      if (cpnStr) setCoupons(dedup(JSON.parse(cpnStr)));
+      if (topStr) setWalletTopupRequests(dedup(JSON.parse(topStr)));
+      if (pkgStr) setPackages(dedup(JSON.parse(pkgStr)));
+      if (csvcStr) setCustomProviderServices(dedup(JSON.parse(csvcStr)));
     } catch {}
   }
 
