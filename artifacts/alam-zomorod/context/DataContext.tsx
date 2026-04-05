@@ -54,8 +54,16 @@ export interface Provider {
   freeServicesLeft: number;
   city?: string;
   photoUri?: string;
+  portfolioPhotos?: { id: string; uri: string; caption?: string; uploadedAt: string }[];
+  serviceRadiusKm?: number;
   attachments?: { name: string; type: string; uploadedAt: string }[];
   blockedCustomers?: string[];
+  pendingProfileChange?: {
+    phone?: string;
+    photoUri?: string;
+    note?: string;
+    requestedAt: string;
+  };
 }
 
 export interface ServiceRequest {
@@ -176,6 +184,8 @@ export interface ServicePackage {
   serviceNames: string[];
   price: number;
   originalPrice: number;
+  durationMinutes?: number;
+  sessionsCount?: number;
   status: "pending" | "approved" | "rejected";
   createdAt: string;
 }
@@ -197,6 +207,11 @@ export interface SystemSettings {
   commissionPercent: number;
   minOfferAmount: number;
   defaultFreeServices: number;
+  appLogoUri?: string;
+  locationEnabled: boolean;
+  googleMapsApiKey?: string;
+  currency: string;
+  countryCode: string;
 }
 
 interface DataContextType {
@@ -248,6 +263,16 @@ interface DataContextType {
   approveCustomService: (id: string) => void;
   rejectCustomService: (id: string) => void;
   removeFromFavorites: (providerId: string) => void;
+  adminDirectTopup: (providerId: string, providerName: string, amount: number, note?: string) => void;
+  setProviderCommission: (providerId: string, commission: number) => void;
+  addPortfolioPhoto: (providerId: string, uri: string, caption?: string) => void;
+  removePortfolioPhoto: (providerId: string, photoId: string) => void;
+  submitProfileChangeRequest: (providerId: string, changes: { phone?: string; photoUri?: string; note?: string }) => void;
+  approveProfileChange: (providerId: string) => void;
+  rejectProfileChange: (providerId: string, reason?: string) => void;
+  deletePackage: (packageId: string) => void;
+  setProviderRadius: (providerId: string, radiusKm: number) => void;
+  JORDAN_CITIES: string[];
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -280,22 +305,26 @@ export const SERVICES: Service[] = [
   { id: "s12", categoryId: "henna", name: "نقش حناء", description: "نقش حناء يدوي", basePrice: 100, duration: 60 },
 ];
 
+export const JORDAN_CITIES = ["عمان", "الزرقاء", "إربد", "العقبة", "السلط", "الرصيفة", "الزرقاء الجديدة"];
+
 export const PROVIDERS_DATA: Provider[] = [
   {
     id: "p1", name: "نور الجمال", type: "freelancer", avatarColor: "#e91e63",
     rating: 4.9, reviewsCount: 152, totalOrders: 234, distance: 1.2,
-    isAvailable: true, location: { lat: 24.72, lng: 46.68, address: "الرياض، حي الملك فهد" },
-    city: "الرياض",
+    isAvailable: true, location: { lat: 31.95, lng: 35.93, address: "عمان، الصويفية" },
+    city: "عمان",
     services: ["s1", "s2", "s3", "s4"],
     providerServices: [
-      { serviceId: "s1", customPrice: 90 },
-      { serviceId: "s2", customPrice: 220 },
-      { serviceId: "s3", customPrice: 380 },
-      { serviceId: "s4", customPrice: 190 },
+      { serviceId: "s1", customPrice: 9 },
+      { serviceId: "s2", customPrice: 22 },
+      { serviceId: "s3", customPrice: 38 },
+      { serviceId: "s4", customPrice: 19 },
     ],
     bio: "متخصصة في تصفيف وصبغ الشعر مع خبرة 8 سنوات",
-    isVerified: true, walletBalance: 1250, phone: "0501234001",
+    isVerified: true, walletBalance: 125, phone: "0791234001",
     idVerified: true, status: "approved", joinedAt: "2024-01-15", commission: 15, freeServicesLeft: 0,
+    serviceRadiusKm: 10,
+    portfolioPhotos: [],
     attachments: [
       { name: "بطاقة الهوية", type: "id", uploadedAt: "2024-01-15" },
       { name: "شهادة تدريب", type: "certificate", uploadedAt: "2024-01-15" },
@@ -305,19 +334,21 @@ export const PROVIDERS_DATA: Provider[] = [
   {
     id: "p2", name: "صالون لمسة", type: "salon", avatarColor: "#9c27b0",
     rating: 4.7, reviewsCount: 89, totalOrders: 456, distance: 2.5,
-    isAvailable: true, location: { lat: 24.71, lng: 46.67, address: "الرياض، حي العليا" },
-    city: "الرياض",
+    isAvailable: true, location: { lat: 32.08, lng: 36.08, address: "الزرقاء، شارع الملك حسين" },
+    city: "الزرقاء",
     services: ["s5", "s6", "s7", "s8", "s9"],
     providerServices: [
-      { serviceId: "s5", customPrice: 550 },
-      { serviceId: "s6", customPrice: 260 },
-      { serviceId: "s7", customPrice: 130 },
-      { serviceId: "s8", customPrice: 70 },
-      { serviceId: "s9", customPrice: 165 },
+      { serviceId: "s5", customPrice: 55 },
+      { serviceId: "s6", customPrice: 26 },
+      { serviceId: "s7", customPrice: 13 },
+      { serviceId: "s8", customPrice: 7 },
+      { serviceId: "s9", customPrice: 17 },
     ],
     bio: "صالون متخصص في المكياج والأظافر للمناسبات",
-    isVerified: true, walletBalance: 3200, phone: "0501234002",
+    isVerified: true, walletBalance: 320, phone: "0791234002",
     idVerified: true, status: "approved", joinedAt: "2023-09-10", commission: 15, freeServicesLeft: 2,
+    serviceRadiusKm: 15,
+    portfolioPhotos: [],
     attachments: [
       { name: "رخصة الصالون", type: "license", uploadedAt: "2023-09-10" },
       { name: "بطاقة هوية المالك", type: "id", uploadedAt: "2023-09-10" },
@@ -327,17 +358,19 @@ export const PROVIDERS_DATA: Provider[] = [
   {
     id: "p3", name: "هناء الجمالية", type: "freelancer", avatarColor: "#f06292",
     rating: 4.6, reviewsCount: 67, totalOrders: 123, distance: 3.1,
-    isAvailable: true, location: { lat: 24.73, lng: 46.69, address: "الرياض، حي الروضة" },
-    city: "الرياض",
+    isAvailable: true, location: { lat: 32.55, lng: 35.85, address: "إربد، المركز" },
+    city: "إربد",
     services: ["s10", "s11", "s12"],
     providerServices: [
-      { serviceId: "s10", customPrice: 190 },
-      { serviceId: "s11", customPrice: 55 },
-      { serviceId: "s12", customPrice: 110 },
+      { serviceId: "s10", customPrice: 19 },
+      { serviceId: "s11", customPrice: 6 },
+      { serviceId: "s12", customPrice: 11 },
     ],
     bio: "خبيرة عناية بالبشرة وفن الحناء",
-    isVerified: true, walletBalance: 890, phone: "0501234003",
+    isVerified: true, walletBalance: 89, phone: "0791234003",
     idVerified: false, status: "pending", joinedAt: "2024-12-01", commission: 15, freeServicesLeft: 5,
+    serviceRadiusKm: 8,
+    portfolioPhotos: [],
     attachments: [
       { name: "بطاقة الهوية", type: "id", uploadedAt: "2024-12-01" },
     ],
@@ -346,18 +379,20 @@ export const PROVIDERS_DATA: Provider[] = [
   {
     id: "p4", name: "أميرة ستايل", type: "freelancer", avatarColor: "#ab47bc",
     rating: 4.8, reviewsCount: 201, totalOrders: 312, distance: 0.8,
-    isAvailable: false, location: { lat: 24.715, lng: 46.672, address: "الرياض، حي النزهة" },
-    city: "الرياض",
+    isAvailable: false, location: { lat: 31.97, lng: 35.87, address: "عمان، الجبيهة" },
+    city: "عمان",
     services: ["s1", "s2", "s5", "s6"],
     providerServices: [
-      { serviceId: "s1", customPrice: 85 },
-      { serviceId: "s2", customPrice: 210 },
-      { serviceId: "s5", customPrice: 520 },
-      { serviceId: "s6", customPrice: 255 },
+      { serviceId: "s1", customPrice: 9 },
+      { serviceId: "s2", customPrice: 21 },
+      { serviceId: "s5", customPrice: 52 },
+      { serviceId: "s6", customPrice: 26 },
     ],
     bio: "مصففة شعر ومتخصصة في المكياج للعرائس",
-    isVerified: true, walletBalance: 2100, phone: "0501234004",
+    isVerified: true, walletBalance: 210, phone: "0791234004",
     idVerified: true, status: "approved", joinedAt: "2023-06-20", commission: 15, freeServicesLeft: 0,
+    serviceRadiusKm: 12,
+    portfolioPhotos: [],
     attachments: [
       { name: "بطاقة الهوية", type: "id", uploadedAt: "2023-06-20" },
       { name: "شهادة حلاقة", type: "certificate", uploadedAt: "2023-06-20" },
@@ -367,17 +402,19 @@ export const PROVIDERS_DATA: Provider[] = [
   {
     id: "p5", name: "ريم بيوتي", type: "freelancer", avatarColor: "#ec407a",
     rating: 0, reviewsCount: 0, totalOrders: 0, distance: 1.5,
-    isAvailable: false, location: { lat: 24.718, lng: 46.671, address: "الرياض، حي الياسمين" },
-    city: "الرياض",
+    isAvailable: false, location: { lat: 32.06, lng: 36.09, address: "الزرقاء، مرج الحمام" },
+    city: "الزرقاء",
     services: ["s8", "s9", "s11"],
     providerServices: [
-      { serviceId: "s8", customPrice: 65 },
-      { serviceId: "s9", customPrice: 155 },
-      { serviceId: "s11", customPrice: 50 },
+      { serviceId: "s8", customPrice: 7 },
+      { serviceId: "s9", customPrice: 16 },
+      { serviceId: "s11", customPrice: 5 },
     ],
     bio: "متخصصة في الأظافر والحواجب، جديدة في المنصة",
-    isVerified: false, walletBalance: 0, phone: "0501234005",
+    isVerified: false, walletBalance: 0, phone: "0791234005",
     idVerified: false, status: "pending", joinedAt: "2026-04-01", commission: 15, freeServicesLeft: 5,
+    serviceRadiusKm: 5,
+    portfolioPhotos: [],
     attachments: [
       { name: "بطاقة الهوية", type: "id", uploadedAt: "2026-04-01" },
     ],
@@ -436,7 +473,7 @@ const MOCK_NOTIFICATIONS: Notification[] = [
   },
   {
     id: "n3", userId: "3", role: "admin", type: "wallet_topup_request",
-    title: "طلب شحن رصيد", body: "نور الجمال تطلب شحن 500 ر.س في المحفظة",
+    title: "طلب شحن رصيد", body: "نور الجمال تطلب شحن 50 د.أ في المحفظة",
     isRead: false, createdAt: "2026-04-05T17:00:00", relatedId: "wt1",
   },
 ];
@@ -455,12 +492,12 @@ const MOCK_COUPONS: Coupon[] = [
 const MOCK_TOPUP_REQUESTS: WalletTopupRequest[] = [
   {
     id: "wt1", providerId: "p1", providerName: "نور الجمال",
-    amount: 500, status: "pending", createdAt: "2026-04-05T17:00:00",
+    amount: 50, status: "pending", createdAt: "2026-04-05T17:00:00",
     note: "أرجو شحن الرصيد عبر التحويل البنكي",
   },
   {
     id: "wt2", providerId: "p2", providerName: "صالون لمسة",
-    amount: 1000, status: "approved", createdAt: "2026-04-01T10:00:00",
+    amount: 100, status: "approved", createdAt: "2026-04-01T10:00:00",
     resolvedAt: "2026-04-01T14:00:00",
   },
 ];
@@ -495,8 +532,12 @@ const DEFAULT_SETTINGS: SystemSettings = {
   radiusKm: 10,
   offerWindowMinutes: 5,
   commissionPercent: 15,
-  minOfferAmount: 30,
+  minOfferAmount: 3,
   defaultFreeServices: 5,
+  locationEnabled: true,
+  googleMapsApiKey: "",
+  currency: "د.أ",
+  countryCode: "JO",
 };
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
@@ -504,10 +545,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [providers, setProviders] = useState<Provider[]>(PROVIDERS_DATA);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [walletTransactions, setWalletTransactions] = useState<WalletTransaction[]>([
-    { id: "t1", userId: "p1", type: "debit", amount: 30, description: "عمولة خدمة صبغ الشعر", date: "2024-12-20" },
-    { id: "t2", userId: "p1", type: "credit", amount: 500, description: "شحن رصيد معتمد من الإدارة", date: "2024-12-15" },
-    { id: "t3", userId: "p2", type: "debit", amount: 45, description: "عمولة مكياج مناسبات", date: "2024-12-10" },
-    { id: "t4", userId: "p2", type: "credit", amount: 1000, description: "شحن رصيد معتمد من الإدارة", date: "2024-12-01" },
+    { id: "t1", userId: "p1", type: "debit", amount: 3, description: "عمولة خدمة صبغ الشعر", date: "2024-12-20" },
+    { id: "t2", userId: "p1", type: "credit", amount: 50, description: "شحن رصيد معتمد من الإدارة", date: "2024-12-15" },
+    { id: "t3", userId: "p2", type: "debit", amount: 5, description: "عمولة مكياج مناسبات", date: "2024-12-10" },
+    { id: "t4", userId: "p2", type: "credit", amount: 100, description: "شحن رصيد معتمد من الإدارة", date: "2024-12-01" },
   ]);
   const [systemSettings, setSystemSettings] = useState<SystemSettings>(DEFAULT_SETTINGS);
   const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
@@ -625,7 +666,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     });
     addNotification({
       userId: "1", role: "customer", type: "offer_received",
-      title: "عرض جديد!", body: `وصلك عرض جديد بسعر ${offer.price} ر.س`,
+      title: "عرض جديد!", body: `وصلك عرض جديد بسعر ${offer.price} د.أ`,
       isRead: false, relatedId: offer.requestId,
     });
     addNotification({
@@ -789,7 +830,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     });
     addNotification({
       userId: "3", role: "admin", type: "wallet_topup_request",
-      title: "طلب شحن رصيد", body: `${providerName} تطلب شحن ${amount} ر.س`,
+      title: "طلب شحن رصيد", body: `${providerName} تطلب شحن ${amount} د.أ`,
       isRead: false, relatedId: newReq.id,
     });
   }, [save, addNotification]);
@@ -823,7 +864,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         });
         addNotification({
           userId: req.providerId, role: "provider", type: "wallet_topup_approved",
-          title: "تم شحن رصيدك!", body: `تم إضافة ${req.amount} ر.س إلى محفظتك`,
+          title: "تم شحن رصيدك!", body: `تم إضافة ${req.amount} د.أ إلى محفظتك`,
           isRead: false, relatedId: requestId,
         });
       }
@@ -998,6 +1039,142 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     });
   }, [save, addNotification]);
 
+  const adminDirectTopup = useCallback((providerId: string, providerName: string, amount: number, note?: string) => {
+    setProviders((pp) => {
+      const upd = pp.map((p) => p.id === providerId ? { ...p, walletBalance: p.walletBalance + amount } : p);
+      save(PROVIDERS_KEY, upd);
+      return upd;
+    });
+    setWalletTransactions((wt) => {
+      const newTx: WalletTransaction = {
+        id: "tx" + Date.now(), userId: providerId,
+        type: "credit", amount,
+        description: note ? `شحن مباشر من الإدارة: ${note}` : "شحن مباشر من الإدارة",
+        date: new Date().toISOString().split("T")[0],
+      };
+      const upd = [newTx, ...wt];
+      save(WALLET_KEY, upd);
+      return upd;
+    });
+    addNotification({
+      userId: providerId, role: "provider", type: "wallet_topup_approved",
+      title: "تم شحن رصيدك!", body: `تمت إضافة ${amount} د.أ إلى محفظتك من قِبَل الإدارة`,
+      isRead: false,
+    });
+  }, [save, addNotification]);
+
+  const setProviderCommission = useCallback((providerId: string, commission: number) => {
+    setProviders((prev) => {
+      const updated = prev.map((p) => p.id === providerId ? { ...p, commission } : p);
+      save(PROVIDERS_KEY, updated);
+      return updated;
+    });
+  }, [save]);
+
+  const addPortfolioPhoto = useCallback((providerId: string, uri: string, caption?: string) => {
+    setProviders((prev) => {
+      const updated = prev.map((p) =>
+        p.id === providerId
+          ? {
+              ...p,
+              portfolioPhotos: [
+                ...(p.portfolioPhotos || []),
+                { id: "ph" + Date.now(), uri, caption, uploadedAt: new Date().toISOString().split("T")[0] },
+              ],
+            }
+          : p
+      );
+      save(PROVIDERS_KEY, updated);
+      return updated;
+    });
+  }, [save]);
+
+  const removePortfolioPhoto = useCallback((providerId: string, photoId: string) => {
+    setProviders((prev) => {
+      const updated = prev.map((p) =>
+        p.id === providerId
+          ? { ...p, portfolioPhotos: (p.portfolioPhotos || []).filter((ph) => ph.id !== photoId) }
+          : p
+      );
+      save(PROVIDERS_KEY, updated);
+      return updated;
+    });
+  }, [save]);
+
+  const submitProfileChangeRequest = useCallback((providerId: string, changes: { phone?: string; photoUri?: string; note?: string }) => {
+    setProviders((prev) => {
+      const updated = prev.map((p) =>
+        p.id === providerId
+          ? { ...p, pendingProfileChange: { ...changes, requestedAt: new Date().toISOString() } }
+          : p
+      );
+      save(PROVIDERS_KEY, updated);
+      return updated;
+    });
+    addNotification({
+      userId: "3", role: "admin", type: "new_request",
+      title: "طلب تعديل ملف", body: `مزود خدمة يطلب تعديل بياناته — يحتاج موافقة`,
+      isRead: false, relatedId: providerId,
+    });
+  }, [save, addNotification]);
+
+  const approveProfileChange = useCallback((providerId: string) => {
+    setProviders((prev) => {
+      const p = prev.find((x) => x.id === providerId);
+      if (!p?.pendingProfileChange) return prev;
+      const { phone, photoUri, requestedAt, ...rest } = p.pendingProfileChange;
+      const updated = prev.map((x) =>
+        x.id === providerId
+          ? {
+              ...x,
+              ...(phone ? { phone } : {}),
+              ...(photoUri ? { photoUri } : {}),
+              pendingProfileChange: undefined,
+            }
+          : x
+      );
+      save(PROVIDERS_KEY, updated);
+      return updated;
+    });
+    addNotification({
+      userId: providerId, role: "provider", type: "account_approved",
+      title: "تمت الموافقة على تعديلاتك", body: "تم اعتماد تعديلات ملفك الشخصي من قِبَل الإدارة",
+      isRead: false,
+    });
+  }, [save, addNotification]);
+
+  const rejectProfileChange = useCallback((providerId: string, reason?: string) => {
+    setProviders((prev) => {
+      const updated = prev.map((x) =>
+        x.id === providerId ? { ...x, pendingProfileChange: undefined } : x
+      );
+      save(PROVIDERS_KEY, updated);
+      return updated;
+    });
+    addNotification({
+      userId: providerId, role: "provider", type: "account_suspended",
+      title: "لم تُعتمد تعديلاتك",
+      body: reason ? `تم رفض طلب تعديل ملفك الشخصي — السبب: ${reason}` : "تم رفض طلب تعديل ملفك الشخصي — تواصل مع الدعم",
+      isRead: false,
+    });
+  }, [save, addNotification]);
+
+  const deletePackage = useCallback((packageId: string) => {
+    setPackages((prev) => {
+      const updated = prev.filter((p) => p.id !== packageId);
+      save(PACKAGES_KEY, updated);
+      return updated;
+    });
+  }, [save]);
+
+  const setProviderRadius = useCallback((providerId: string, radiusKm: number) => {
+    setProviders((prev) => {
+      const updated = prev.map((p) => p.id === providerId ? { ...p, serviceRadiusKm: radiusKm } : p);
+      save(PROVIDERS_KEY, updated);
+      return updated;
+    });
+  }, [save]);
+
   const getRequestsByCustomer = useCallback((userId: string) =>
     requests.filter((r) => r.customerId === userId), [requests]);
 
@@ -1029,11 +1206,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       updateSystemSettings,
       addNotification, markNotificationRead, markAllRead,
       addCoupon, updateCoupon, deleteCoupon, validateCoupon,
-      addPackage, approvePackage, rejectPackage,
+      addPackage, approvePackage, rejectPackage, deletePackage,
       blockCustomer, unblockCustomer,
       customProviderServices, addCustomProviderService, deleteCustomProviderService,
       approveCustomService, rejectCustomService,
       removeFromFavorites,
+      adminDirectTopup, setProviderCommission,
+      addPortfolioPhoto, removePortfolioPhoto,
+      submitProfileChangeRequest, approveProfileChange, rejectProfileChange,
+      setProviderRadius,
+      JORDAN_CITIES,
     }}>
       {children}
     </DataContext.Provider>

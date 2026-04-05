@@ -88,7 +88,7 @@ export default function AdminRequestsScreen() {
                 <ReqRow icon="map-pin" label="الموقع" value={item.address} />
                 <ReqRow icon="calendar" label="الموعد" value={new Date(item.scheduledAt).toLocaleDateString("ar-SA")} />
                 {item.providerName && <ReqRow icon="briefcase" label="المزود" value={item.providerName} />}
-                {item.price && <ReqRow icon="dollar-sign" label="السعر" value={`${item.price} ر.س`} />}
+                {item.price && <ReqRow icon="dollar-sign" label="السعر" value={`${item.price} د.أ`} />}
                 <ReqRow icon="clock" label="عروض" value={`${item.offers.length} عرض`} />
               </View>
 

@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useData, SERVICES } from "@/context/DataContext";
+import * as Haptics from "expo-haptics";
 import { StarRating } from "@/components/ui/StarRating";
 
 type TabKey = "info" | "services" | "wallet" | "attachments";
@@ -23,11 +24,23 @@ export default function AdminProviderDetailScreen() {
   const {
     providers, walletTransactions, getRequestsByProvider,
     updateProvider, suspendProvider, approveWalletTopup,
+    adminDirectTopup, setProviderCommission,
+    approveProfileChange, rejectProfileChange,
   } = useData();
   const [tab, setTab] = useState<TabKey>("info");
   const [showActivateConfirm, setShowActivateConfirm] = useState(false);
   const [showSuspendModal, setShowSuspendModal] = useState(false);
   const [suspendReason, setSuspendReason] = useState("");
+  const [showTopupModal, setShowTopupModal] = useState(false);
+  const [topupAmount, setTopupAmount] = useState("");
+  const [topupNote, setTopupNote] = useState("");
+  const [topupSuccess, setTopupSuccess] = useState(false);
+  const [topupError, setTopupError] = useState("");
+  const [editCommission, setEditCommission] = useState("");
+  const [showCommissionModal, setShowCommissionModal] = useState(false);
+  const [commissionError, setCommissionError] = useState("");
+  const [showRejectProfileModal, setShowRejectProfileModal] = useState(false);
+  const [rejectProfileReason, setRejectProfileReason] = useState("");
   const webTopPad = Platform.OS === "web" ? 67 : 0;
   const webBottomPad = Platform.OS === "web" ? 34 : 0;
 
@@ -77,7 +90,7 @@ export default function AdminProviderDetailScreen() {
           </Text>
           <View style={styles.statsRow}>
             <Stat label="طلب" value={provider.totalOrders} />
-            <Stat label="رصيد" value={`${provider.walletBalance} ر.س`} />
+            <Stat label="رصيد" value={`${provider.walletBalance} د.أ`} />
             <Stat label="تقييم" value={provider.rating} />
           </View>
         </View>
@@ -140,9 +153,59 @@ export default function AdminProviderDetailScreen() {
             <InfoRow icon="phone" label="رقم الهاتف" value={provider.phone || "—"} />
             <InfoRow icon="map-pin" label="الموقع" value={provider.location.address} />
             <InfoRow icon="calendar" label="تاريخ الانضمام" value={provider.joinedAt} />
-            <InfoRow icon="percent" label="نسبة العمولة" value={`${provider.commission}%`} />
-            <InfoRow icon="gift" label="خدمات مجانية متبقية" value={String(provider.freeServicesLeft)} />
             <InfoRow icon="shield" label="توثيق الهوية" value={provider.idVerified ? "موثق ✓" : "غير موثق ✗"} />
+            <InfoRow icon="gift" label="خدمات مجانية متبقية" value={String(provider.freeServicesLeft)} />
+
+            <View style={styles.commissionCard}>
+              <View style={styles.commissionRow}>
+                <TouchableOpacity
+                  style={styles.commissionEditBtn}
+                  onPress={() => { setEditCommission(String(provider.commission)); setCommissionError(""); setShowCommissionModal(true); }}
+                >
+                  <Feather name="edit-2" size={14} color="#c8a951" />
+                  <Text style={styles.commissionEditText}>تعديل</Text>
+                </TouchableOpacity>
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={styles.commissionLabel}>نسبة العمولة</Text>
+                  <Text style={styles.commissionValue}>{provider.commission}%</Text>
+                </View>
+              </View>
+            </View>
+
+            {provider.pendingProfileChange && (
+              <View style={styles.pendingProfileCard}>
+                <View style={styles.pendingProfileHeader}>
+                  <View style={styles.pendingProfileActions}>
+                    <TouchableOpacity
+                      style={[styles.pendingBtn, { backgroundColor: "#f44336" + "20", borderColor: "#f44336" }]}
+                      onPress={() => { setRejectProfileReason(""); setShowRejectProfileModal(true); }}
+                    >
+                      <Feather name="x" size={14} color="#f44336" />
+                      <Text style={[styles.pendingBtnText, { color: "#f44336" }]}>رفض</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.pendingBtn, { backgroundColor: "#4caf50" + "20", borderColor: "#4caf50" }]}
+                      onPress={() => { approveProfileChange(provider.id); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); }}
+                    >
+                      <Feather name="check" size={14} color="#4caf50" />
+                      <Text style={[styles.pendingBtnText, { color: "#4caf50" }]}>قبول</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.pendingProfileTitle}>⏳ طلب تعديل الملف</Text>
+                </View>
+                {provider.pendingProfileChange.phone && (
+                  <Text style={styles.pendingProfileInfo}>📱 رقم جديد: {provider.pendingProfileChange.phone}</Text>
+                )}
+                {provider.pendingProfileChange.photoUri && (
+                  <Text style={styles.pendingProfileInfo}>🖼️ صورة شخصية جديدة</Text>
+                )}
+                {provider.pendingProfileChange.note && (
+                  <Text style={styles.pendingProfileNote}>ملاحظة: {provider.pendingProfileChange.note}</Text>
+                )}
+                <Text style={styles.pendingProfileDate}>طُلب: {provider.pendingProfileChange.requestedAt}</Text>
+              </View>
+            )}
+
             {provider.status === "suspended" && provider.suspensionReason && (
               <View style={styles.suspensionCard}>
                 <Feather name="alert-circle" size={16} color="#f44336" />
@@ -164,7 +227,7 @@ export default function AdminProviderDetailScreen() {
                 </Text>
                 <View style={{ flex: 1, alignItems: "flex-end" }}>
                   <Text style={styles.jobService}>{job.serviceName}</Text>
-                  <Text style={styles.jobMeta}>{job.price || "—"} ر.س · {job.scheduledAt.split("T")[0]}</Text>
+                  <Text style={styles.jobMeta}>{job.price || "—"} د.أ · {job.scheduledAt.split("T")[0]}</Text>
                 </View>
               </View>
             ))}
@@ -181,10 +244,10 @@ export default function AdminProviderDetailScreen() {
                   <View style={styles.serviceRight}>
                     <View style={styles.servicePriceArea}>
                       <Text style={styles.serviceCustomPrice}>
-                        {ps ? `${ps.customPrice} ر.س` : `${s.basePrice} ر.س`}
+                        {ps ? `${ps.customPrice} د.أ` : `${s.basePrice} د.أ`}
                       </Text>
                       {ps && ps.customPrice !== s.basePrice && (
-                        <Text style={styles.serviceBasePrice}>{s.basePrice} ر.س</Text>
+                        <Text style={styles.serviceBasePrice}>{s.basePrice} د.أ</Text>
                       )}
                     </View>
                     <Text style={styles.serviceDuration}>{s.duration} د</Text>
@@ -203,14 +266,23 @@ export default function AdminProviderDetailScreen() {
         {tab === "wallet" && (
           <View style={styles.section}>
             <View style={styles.balanceCard}>
-              <Text style={styles.balanceLabel}>الرصيد الحالي</Text>
-              <Text style={styles.balanceValue}>{provider.walletBalance.toFixed(2)} ر.س</Text>
+              <TouchableOpacity
+                style={styles.topupDirectBtn}
+                onPress={() => { setTopupAmount(""); setTopupNote(""); setTopupSuccess(false); setTopupError(""); setShowTopupModal(true); }}
+              >
+                <Feather name="plus-circle" size={16} color="#c8a951" />
+                <Text style={styles.topupDirectText}>شحن مباشر</Text>
+              </TouchableOpacity>
+              <View style={{ alignItems: "flex-end" }}>
+                <Text style={styles.balanceLabel}>الرصيد الحالي</Text>
+                <Text style={styles.balanceValue}>{provider.walletBalance.toFixed(2)} د.أ</Text>
+              </View>
             </View>
             <Text style={styles.subTitle}>كشف الحساب</Text>
             {txs.map((tx) => (
               <View key={tx.id} style={styles.txRow}>
                 <Text style={[styles.txAmount, { color: tx.type === "credit" ? "#4caf50" : "#f44336" }]}>
-                  {tx.type === "credit" ? "+" : "-"}{tx.amount.toFixed(2)} ر.س
+                  {tx.type === "credit" ? "+" : "-"}{tx.amount.toFixed(2)} د.أ
                 </Text>
                 <View style={{ flex: 1, alignItems: "flex-end" }}>
                   <Text style={styles.txDesc}>{tx.description}</Text>
@@ -297,6 +369,137 @@ export default function AdminProviderDetailScreen() {
           </View>
         </View>
       </Modal>
+
+      <Modal visible={showTopupModal} transparent animationType="slide" onRequestClose={() => setShowTopupModal(false)}>
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmBox}>
+            <Feather name="dollar-sign" size={28} color="#c8a951" style={{ alignSelf: "center" }} />
+            <Text style={styles.confirmTitle}>شحن مباشر</Text>
+            {topupSuccess ? (
+              <>
+                <View style={{ backgroundColor: "#4caf5020", borderRadius: 10, padding: 14, alignItems: "center", marginBottom: 8 }}>
+                  <Feather name="check-circle" size={28} color="#4caf50" />
+                  <Text style={{ color: "#4caf50", fontSize: 15, fontFamily: "Inter_700Bold", marginTop: 6 }}>تم الشحن بنجاح</Text>
+                </View>
+                <TouchableOpacity style={[styles.confirmOk, { backgroundColor: "#c8a951" }]} onPress={() => setShowTopupModal(false)}>
+                  <Text style={styles.confirmOkText}>موافق</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <Text style={styles.confirmMsg}>إضافة رصيد مباشر لمحفظة {provider.name}</Text>
+                <TextInput
+                  style={styles.suspendInput}
+                  value={topupAmount}
+                  onChangeText={setTopupAmount}
+                  placeholder="المبلغ بالدينار الأردني..."
+                  placeholderTextColor="#555"
+                  keyboardType="numeric"
+                  textAlign="right"
+                />
+                <TextInput
+                  style={[styles.suspendInput, { marginTop: 8 }]}
+                  value={topupNote}
+                  onChangeText={setTopupNote}
+                  placeholder="ملاحظة (اختياري)..."
+                  placeholderTextColor="#555"
+                  textAlign="right"
+                />
+                {topupError ? <Text style={{ color: "#f44336", textAlign: "center", fontFamily: "Inter_400Regular", fontSize: 13 }}>{topupError}</Text> : null}
+                <View style={styles.confirmActions}>
+                  <TouchableOpacity style={styles.confirmCancel} onPress={() => setShowTopupModal(false)}>
+                    <Text style={styles.confirmCancelText}>إلغاء</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.confirmOk, { backgroundColor: "#c8a951" }]}
+                    onPress={() => {
+                      const amt = parseFloat(topupAmount);
+                      if (isNaN(amt) || amt <= 0) { setTopupError("يرجى إدخال مبلغ صحيح"); return; }
+                      adminDirectTopup(provider.id, provider.name, amt, topupNote || undefined);
+                      setTopupSuccess(true);
+                      setTopupError("");
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    }}
+                  >
+                    <Text style={styles.confirmOkText}>شحن</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showCommissionModal} transparent animationType="slide" onRequestClose={() => setShowCommissionModal(false)}>
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmBox}>
+            <Feather name="percent" size={28} color="#c8a951" style={{ alignSelf: "center" }} />
+            <Text style={styles.confirmTitle}>تعديل نسبة العمولة</Text>
+            <Text style={styles.confirmMsg}>النسبة الحالية: {provider.commission}%</Text>
+            <TextInput
+              style={styles.suspendInput}
+              value={editCommission}
+              onChangeText={setEditCommission}
+              placeholder="النسبة الجديدة (مثال: 12)"
+              placeholderTextColor="#555"
+              keyboardType="numeric"
+              textAlign="right"
+            />
+            {commissionError ? <Text style={{ color: "#f44336", textAlign: "center", fontFamily: "Inter_400Regular", fontSize: 13 }}>{commissionError}</Text> : null}
+            <View style={styles.confirmActions}>
+              <TouchableOpacity style={styles.confirmCancel} onPress={() => setShowCommissionModal(false)}>
+                <Text style={styles.confirmCancelText}>إلغاء</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmOk, { backgroundColor: "#c8a951" }]}
+                onPress={() => {
+                  const c = parseFloat(editCommission);
+                  if (isNaN(c) || c < 0 || c > 100) { setCommissionError("أدخل نسبة صحيحة بين 0 و 100"); return; }
+                  setProviderCommission(provider.id, c);
+                  setShowCommissionModal(false);
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                }}
+              >
+                <Text style={styles.confirmOkText}>حفظ</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showRejectProfileModal} transparent animationType="slide" onRequestClose={() => setShowRejectProfileModal(false)}>
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmBox}>
+            <Text style={styles.confirmTitle}>رفض طلب التعديل</Text>
+            <Text style={styles.confirmMsg}>يرجى ذكر سبب الرفض ليعرفه المزود</Text>
+            <TextInput
+              style={styles.suspendInput}
+              value={rejectProfileReason}
+              onChangeText={setRejectProfileReason}
+              placeholder="سبب الرفض..."
+              placeholderTextColor="#555"
+              multiline
+              numberOfLines={2}
+              textAlign="right"
+            />
+            <View style={styles.confirmActions}>
+              <TouchableOpacity style={styles.confirmCancel} onPress={() => setShowRejectProfileModal(false)}>
+                <Text style={styles.confirmCancelText}>إلغاء</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmOk, { backgroundColor: "#f44336" }]}
+                onPress={() => {
+                  rejectProfileChange(provider.id, rejectProfileReason.trim() || undefined);
+                  setShowRejectProfileModal(false);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                }}
+              >
+                <Text style={styles.confirmOkText}>رفض</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -375,9 +578,26 @@ const styles = StyleSheet.create({
   serviceDuration: { color: "#888", fontSize: 12, fontFamily: "Inter_400Regular" },
   serviceName: { color: "#fff", fontSize: 14, fontFamily: "Inter_600SemiBold" },
   serviceDesc: { color: "#888", fontSize: 12, fontFamily: "Inter_400Regular" },
-  balanceCard: { backgroundColor: "#c8a951" + "20", borderRadius: 16, padding: 20, alignItems: "center", gap: 6 },
+  balanceCard: { backgroundColor: "#c8a951" + "20", borderRadius: 16, padding: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   balanceLabel: { color: "#c8a951", fontSize: 14, fontFamily: "Inter_600SemiBold" },
   balanceValue: { color: "#fff", fontSize: 32, fontFamily: "Inter_700Bold" },
+  topupDirectBtn: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#c8a951" + "30", paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: "#c8a951" },
+  topupDirectText: { color: "#c8a951", fontSize: 13, fontFamily: "Inter_700Bold" },
+  commissionCard: { backgroundColor: "#1a1a2e", borderRadius: 12, padding: 14 },
+  commissionRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  commissionLabel: { color: "#888", fontSize: 13, fontFamily: "Inter_400Regular" },
+  commissionValue: { color: "#c8a951", fontSize: 22, fontFamily: "Inter_700Bold" },
+  commissionEditBtn: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#c8a951" + "20", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
+  commissionEditText: { color: "#c8a951", fontSize: 13, fontFamily: "Inter_700Bold" },
+  pendingProfileCard: { backgroundColor: "#ff9800" + "15", borderRadius: 12, padding: 14, borderWidth: 1, borderColor: "#ff9800" + "40", gap: 6 },
+  pendingProfileHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  pendingProfileTitle: { color: "#ff9800", fontSize: 14, fontFamily: "Inter_700Bold" },
+  pendingProfileActions: { flexDirection: "row", gap: 8 },
+  pendingBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, borderWidth: 1 },
+  pendingBtnText: { fontSize: 13, fontFamily: "Inter_700Bold" },
+  pendingProfileInfo: { color: "#fff", fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "right" },
+  pendingProfileNote: { color: "#aaa", fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "right" },
+  pendingProfileDate: { color: "#666", fontSize: 11, fontFamily: "Inter_400Regular", textAlign: "right" },
   txRow: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#1a1a2e", padding: 14, borderRadius: 12 },
   txAmount: { fontSize: 16, fontFamily: "Inter_700Bold", minWidth: 90, textAlign: "left" },
   txDesc: { color: "#fff", fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "right" },

@@ -142,7 +142,7 @@ export default function AdminCouponsScreen() {
                   <Text style={styles.couponCode}>{item.code}</Text>
                   <View style={styles.couponBadge}>
                     <Text style={styles.couponValue}>
-                      {item.type === "percent" ? `${item.value}%` : `${item.value} ر.س`}
+                      {item.type === "percent" ? `${item.value}%` : `${item.value} د.أ`}
                     </Text>
                     <Text style={styles.couponType}>{item.type === "percent" ? "نسبة" : "قيمة ثابتة"}</Text>
                   </View>
@@ -201,9 +201,9 @@ export default function AdminCouponsScreen() {
                 ))}
               </View>
               <View style={styles.pkgPrices}>
-                <Text style={styles.pkgOriginalPrice}>{item.originalPrice} ر.س</Text>
-                <Text style={styles.pkgPrice}>{item.price} ر.س</Text>
-                <Text style={styles.pkgSavings}>وفّري {item.originalPrice - item.price} ر.س</Text>
+                <Text style={styles.pkgOriginalPrice}>{item.originalPrice} د.أ</Text>
+                <Text style={styles.pkgPrice}>{item.price} د.أ</Text>
+                <Text style={styles.pkgSavings}>وفّري {item.originalPrice - item.price} د.أ</Text>
               </View>
               {item.status === "pending" && (
                 <View style={styles.pkgActions}>
@@ -260,7 +260,7 @@ export default function AdminCouponsScreen() {
                 </View>
                 <Text style={styles.pkgDesc}>{item.description}</Text>
                 <View style={styles.pkgPrices}>
-                  <Text style={styles.pkgPrice}>{item.price} ر.س</Text>
+                  <Text style={styles.pkgPrice}>{item.price} د.أ</Text>
                   {item.duration && (
                     <Text style={styles.pkgProvider}>{item.duration} دقيقة</Text>
                   )}
@@ -323,7 +323,7 @@ export default function AdminCouponsScreen() {
                     onPress={() => setType(t)}
                   >
                     <Text style={[styles.typeBtnText, type === t && styles.typeBtnTextActive]}>
-                      {t === "percent" ? "نسبة مئوية %" : "قيمة ثابتة ر.س"}
+                      {t === "percent" ? "نسبة مئوية %" : "قيمة ثابتة د.أ"}
                     </Text>
                   </TouchableOpacity>
                 ))}

@@ -209,7 +209,7 @@ export default function ProviderRequestsScreen() {
                 </View>
                 <View style={styles.cardRight}>
                   <Text style={[styles.budgetLabel, { color: colors.mutedForeground }]}>ميزانية</Text>
-                  <Text style={[styles.budgetVal, { color: colors.primary }]}>{item.price} ر.س</Text>
+                  <Text style={[styles.budgetVal, { color: colors.primary }]}>{item.price} د.أ</Text>
                   <Text style={[styles.offersCount, { color: colors.mutedForeground }]}>
                     {item.offers.length} عروض
                   </Text>
@@ -244,7 +244,7 @@ export default function ProviderRequestsScreen() {
                 <View style={[styles.alreadyOffered, { backgroundColor: colors.primary + "15" }]}>
                   <Feather name="clock" size={16} color={colors.primary} />
                   <Text style={[styles.alreadyOfferedText, { color: colors.primary }]}>
-                    عرضك: {myOffer?.price} ر.س — بانتظار العميل
+                    عرضك: {myOffer?.price} د.أ — بانتظار العميل
                   </Text>
                 </View>
               ) : (
@@ -302,7 +302,7 @@ export default function ProviderRequestsScreen() {
                   placeholderTextColor={colors.mutedForeground}
                   textAlign="right"
                 />
-                <Text style={[styles.currencyText, { color: colors.mutedForeground }]}>ر.س</Text>
+                <Text style={[styles.currencyText, { color: colors.mutedForeground }]}>د.أ</Text>
               </View>
               {offerError !== "" && (
                 <Text style={{ color: colors.destructive, fontSize: 12, textAlign: "right", fontFamily: "Inter_400Regular" }}>{offerError}</Text>

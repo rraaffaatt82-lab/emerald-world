@@ -62,10 +62,10 @@ export default function ProviderEarningsScreen() {
   }
 
   const statCards = [
-    { label: "الرصيد الحالي", value: `${provider?.walletBalance || 0} ر.س`, icon: "credit-card", color: colors.primary },
+    { label: "الرصيد الحالي", value: `${provider?.walletBalance || 0} د.أ`, icon: "credit-card", color: colors.primary },
     { label: "إجمالي الطلبات", value: String(provider?.totalOrders || 0), icon: "briefcase", color: colors.accent },
-    { label: "إجمالي الأرباح", value: `${totalEarned} ر.س`, icon: "trending-up", color: colors.success },
-    { label: "العمولات المدفوعة", value: `${totalCommission.toFixed(0)} ر.س`, icon: "percent", color: colors.warning },
+    { label: "إجمالي الأرباح", value: `${totalEarned} د.أ`, icon: "trending-up", color: colors.success },
+    { label: "العمولات المدفوعة", value: `${totalCommission.toFixed(0)} د.أ`, icon: "percent", color: colors.warning },
   ];
 
   return (
@@ -154,7 +154,7 @@ export default function ProviderEarningsScreen() {
               <Text style={[styles.txAmount, {
                 color: tx.type === "credit" ? colors.success : colors.destructive,
               }]}>
-                {tx.type === "credit" ? "+" : "-"}{tx.amount} ر.س
+                {tx.type === "credit" ? "+" : "-"}{tx.amount} د.أ
               </Text>
             </View>
           ))
@@ -198,7 +198,7 @@ export default function ProviderEarningsScreen() {
                   سيتم مراجعة طلبك من قبل الإدارة وإشعارك فور الموافقة
                 </Text>
 
-                <Text style={[styles.fieldLabel, { color: colors.foreground }]}>المبلغ المطلوب (ر.س) *</Text>
+                <Text style={[styles.fieldLabel, { color: colors.foreground }]}>المبلغ المطلوب (د.أ) *</Text>
                 <View style={[styles.amountInput, { borderColor: colors.border, backgroundColor: colors.muted }]}>
                   <TextInput
                     style={[styles.amountText, { color: colors.foreground }]}

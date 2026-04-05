@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import React, { useState } from "react";
-import { Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Modal, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useData } from "@/context/DataContext";
 import { useAuth } from "@/context/AuthContext";
@@ -14,6 +14,9 @@ export default function AdminSettingsScreen() {
   const [window, setWindow] = useState(String(systemSettings.offerWindowMinutes));
   const [commission, setCommission] = useState(String(systemSettings.commissionPercent));
   const [minOffer, setMinOffer] = useState(String(systemSettings.minOfferAmount));
+  const [logoUri, setLogoUri] = useState(systemSettings.appLogoUri || "");
+  const [mapsApiKey, setMapsApiKey] = useState(systemSettings.googleMapsApiKey || "");
+  const [locationEnabled, setLocationEnabled] = useState(systemSettings.locationEnabled !== false);
   const [saveError, setSaveError] = useState("");
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -30,7 +33,12 @@ export default function AdminSettingsScreen() {
       setSaveSuccess(false);
       return;
     }
-    updateSystemSettings({ radiusKm: r, offerWindowMinutes: w, commissionPercent: c, minOfferAmount: m });
+    updateSystemSettings({
+      radiusKm: r, offerWindowMinutes: w, commissionPercent: c, minOfferAmount: m,
+      appLogoUri: logoUri.trim() || undefined,
+      googleMapsApiKey: mapsApiKey.trim() || undefined,
+      locationEnabled,
+    });
     setSaveError("");
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
@@ -83,6 +91,69 @@ export default function AdminSettingsScreen() {
           desc="أقل مبلغ يمكن لمزود الخدمة تقديمه كعرض"
           keyboardType="numeric"
         />
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>إعدادات الموقع والخريطة</Text>
+        <View style={styles.fieldCard}>
+          <View style={styles.fieldHeader}>
+            <Switch
+              value={locationEnabled}
+              onValueChange={setLocationEnabled}
+              trackColor={{ false: "#333", true: "#c8a951" }}
+              thumbColor="#fff"
+            />
+            <View style={styles.fieldLabel}>
+              <Text style={styles.fieldLabelText}>تفعيل خدمة الموقع</Text>
+              <Feather name="map-pin" size={16} color="#c8a951" />
+            </View>
+          </View>
+          <Text style={styles.fieldDesc}>السماح للتطبيق بتحديد موقع العميل تلقائياً وإرسال الطلبات لمزودي الخدمة القريبين</Text>
+        </View>
+        <View style={styles.fieldCard}>
+          <View style={styles.fieldHeader}>
+            <TextInput
+              style={[styles.fieldInput, { fontSize: 13, flex: 1 }]}
+              value={mapsApiKey}
+              onChangeText={setMapsApiKey}
+              placeholder="أدخل مفتاح Google Maps API"
+              placeholderTextColor="#555"
+              textAlign="right"
+              secureTextEntry={false}
+            />
+            <View style={styles.fieldLabel}>
+              <Text style={styles.fieldLabelText}>مفتاح Google Maps</Text>
+              <Feather name="navigation" size={16} color="#c8a951" />
+            </View>
+          </View>
+          <Text style={styles.fieldDesc}>مطلوب لتفعيل الخريطة التفاعلية وتحديد المواقع بدقة — احصل عليه من Google Cloud Console</Text>
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>إعدادات واجهة التطبيق</Text>
+        <View style={styles.fieldCard}>
+          <View style={styles.fieldHeader}>
+            <TextInput
+              style={[styles.fieldInput, { fontSize: 13, flex: 1 }]}
+              value={logoUri}
+              onChangeText={setLogoUri}
+              placeholder="رابط صورة الشعار (URL)"
+              placeholderTextColor="#555"
+              textAlign="right"
+            />
+            <View style={styles.fieldLabel}>
+              <Text style={styles.fieldLabelText}>شعار التطبيق</Text>
+              <Feather name="image" size={16} color="#c8a951" />
+            </View>
+          </View>
+          <Text style={styles.fieldDesc}>أدخل رابط صورة الشعار (PNG/JPG). سيظهر في الشاشة الرئيسية بدلاً من الشعار الافتراضي.</Text>
+          {logoUri.trim() !== "" && (
+            <View style={{ backgroundColor: "#4caf5020", borderRadius: 8, padding: 8, marginTop: 4 }}>
+              <Text style={{ color: "#4caf50", fontSize: 12, fontFamily: "Inter_600SemiBold", textAlign: "right" }}>✓ سيُحدَّث الشعار عند الحفظ</Text>
+            </View>
+          )}
+        </View>
       </View>
 
       <View style={[styles.infoCard, { backgroundColor: "#1a1a2e" }]}>

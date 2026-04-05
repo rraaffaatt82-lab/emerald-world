@@ -43,6 +43,9 @@ export default function OrderDetailScreen() {
   const order = requests.find((o) => o.id === id);
   const webTopPad = Platform.OS === "web" ? 67 : 0;
 
+  const [confirmOffer, setConfirmOffer] = useState<{ offerId: string; providerName: string } | null>(null);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
   if (!order) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -56,9 +59,6 @@ export default function OrderDetailScreen() {
     );
   }
 
-  const [confirmOffer, setConfirmOffer] = useState<{ offerId: string; providerName: string } | null>(null);
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-
   const currentStep = getStatusIndex(order.status);
   const pendingOffers = order.offers.filter((o) => o.status === "pending");
   const acceptedOffer = order.offers.find((o) => o.status === "accepted");
@@ -68,7 +68,7 @@ export default function OrderDetailScreen() {
   }
 
   function doAcceptOffer() {
-    if (!confirmOffer) return;
+    if (!confirmOffer || !order) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     acceptOffer(order.id, confirmOffer.offerId);
     setConfirmOffer(null);
@@ -79,6 +79,7 @@ export default function OrderDetailScreen() {
   }
 
   function doCancelRequest() {
+    if (!order) return;
     setShowCancelConfirm(false);
     cancelRequest(order.id);
     router.back();
@@ -175,7 +176,7 @@ export default function OrderDetailScreen() {
               <View key={offer.id} style={[styles.offerCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <View style={styles.offerTop}>
                   <View style={styles.offerPriceArea}>
-                    <Text style={[styles.offerPrice, { color: colors.primary }]}>{offer.price} ر.س</Text>
+                    <Text style={[styles.offerPrice, { color: colors.primary }]}>{offer.price} د.أ</Text>
                     <View style={styles.etaRow}>
                       <Feather name="clock" size={13} color={colors.mutedForeground} />
                       <Text style={[styles.etaText, { color: colors.mutedForeground }]}> {offer.eta} دقيقة</Text>
@@ -214,6 +215,28 @@ export default function OrderDetailScreen() {
                     <Text style={[styles.offerNoteText, { color: colors.mutedForeground }]}>
                       💬 {offer.note}
                     </Text>
+                  </View>
+                )}
+
+                {providerData?.portfolioPhotos && providerData.portfolioPhotos.length > 0 && (
+                  <View style={[styles.portfolioRow, { borderTopColor: colors.border }]}>
+                    <Text style={[styles.portfolioLabel, { color: colors.mutedForeground }]}>
+                      📸 معرض الأعمال ({providerData.portfolioPhotos.length})
+                    </Text>
+                    <View style={styles.portfolioThumbsRow}>
+                      {providerData.portfolioPhotos.slice(0, 3).map((photo, i) => (
+                        <View key={i} style={[styles.portfolioThumb, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+                          <Feather name="image" size={16} color={colors.primary} />
+                        </View>
+                      ))}
+                      {providerData.portfolioPhotos.length > 3 && (
+                        <View style={[styles.portfolioThumb, { backgroundColor: colors.primary + "20", borderColor: colors.primary }]}>
+                          <Text style={{ color: colors.primary, fontSize: 11, fontFamily: "Inter_700Bold" }}>
+                            +{providerData.portfolioPhotos.length - 3}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
                 )}
 
@@ -363,6 +386,10 @@ const styles = StyleSheet.create({
   offerAvatarText: { color: "#fff", fontSize: 18, fontFamily: "Inter_700Bold" },
   offerNote: { marginHorizontal: 14, borderRadius: 12, padding: 10 },
   offerNoteText: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "right" },
+  portfolioRow: { marginHorizontal: 14, marginBottom: 8, borderTopWidth: 1, paddingTop: 10, gap: 8 },
+  portfolioLabel: { fontSize: 12, fontFamily: "Inter_600SemiBold", textAlign: "right" },
+  portfolioThumbsRow: { flexDirection: "row", justifyContent: "flex-end", gap: 8 },
+  portfolioThumb: { width: 50, height: 50, borderRadius: 10, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   privacyHint: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 10, gap: 8 },
   privacyHintText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   acceptBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 14, margin: 14, marginTop: 0, borderRadius: 14, gap: 8 },

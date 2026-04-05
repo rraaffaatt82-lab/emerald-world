@@ -13,7 +13,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useData, SERVICES } from "@/context/DataContext";
+import { useData, SERVICES, JORDAN_CITIES } from "@/context/DataContext";
 import { StarRating } from "@/components/ui/StarRating";
 
 type FilterTab = "pending" | "approved" | "suspended" | "all";
@@ -32,6 +32,7 @@ export default function AdminProvidersScreen() {
   const [approveModal, setApproveModal] = useState<{ id: string; name: string } | null>(null);
   const [reactivateModal, setReactivateModal] = useState<{ id: string; name: string } | null>(null);
   const [showTopupRequests, setShowTopupRequests] = useState(false);
+  const [cityFilter, setCityFilter] = useState<string>("all");
   const webTopPad = Platform.OS === "web" ? 67 : 0;
   const webBottomPad = Platform.OS === "web" ? 34 : 0;
 
@@ -39,6 +40,7 @@ export default function AdminProvidersScreen() {
 
   let filtered = tab === "all" ? providers : providers.filter((p) => p.status === tab);
   if (typeFilter !== "all") filtered = filtered.filter((p) => p.type === typeFilter);
+  if (cityFilter !== "all") filtered = filtered.filter((p) => p.city === cityFilter);
   if (search.trim()) {
     const q = search.trim().toLowerCase();
     filtered = filtered.filter(
@@ -147,6 +149,24 @@ export default function AdminProvidersScreen() {
             </TouchableOpacity>
           ))}
         </View>
+
+        <FlatList
+          data={["all", ...JORDAN_CITIES]}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(i) => i}
+          contentContainerStyle={styles.cityRow}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[styles.cityBtn, cityFilter === item && styles.cityBtnActive]}
+              onPress={() => setCityFilter(item)}
+            >
+              <Text style={[styles.cityBtnText, cityFilter === item && styles.cityBtnTextActive]}>
+                {item === "all" ? "🗺️ كل المدن" : `📍 ${item}`}
+              </Text>
+            </TouchableOpacity>
+          )}
+        />
       </View>
 
       <View style={styles.tabBar}>
@@ -211,7 +231,7 @@ export default function AdminProvidersScreen() {
               <View style={styles.provDetails}>
                 <Detail icon="phone" value={item.phone || "—"} />
                 <Detail icon="map-pin" value={item.location.address} />
-                <Detail icon="briefcase" value={`${item.totalOrders} طلب · ${item.walletBalance} ر.س رصيد`} />
+                <Detail icon="briefcase" value={`${item.totalOrders} طلب · ${item.walletBalance} د.أ رصيد`} />
                 <Detail icon="calendar" value={`انضم: ${item.joinedAt}`} />
               </View>
 
@@ -338,7 +358,7 @@ export default function AdminProvidersScreen() {
               <View key={req.id} style={styles.topupCard}>
                 <View style={styles.topupCardInfo}>
                   <Text style={styles.topupName}>{req.providerName}</Text>
-                  <Text style={styles.topupAmount}>{req.amount} ر.س</Text>
+                  <Text style={styles.topupAmount}>{req.amount} د.أ</Text>
                   {req.note && <Text style={styles.topupNote}>{req.note}</Text>}
                 </View>
                 <View style={styles.topupBtns}>
@@ -423,11 +443,16 @@ const styles = StyleSheet.create({
   topupBadgeText: { color: "#000", fontSize: 12, fontFamily: "Inter_700Bold" },
   searchRow: { flexDirection: "row", alignItems: "center", backgroundColor: "#1a1a2e", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, gap: 8, marginBottom: 10 },
   searchInput: { flex: 1, color: "#fff", fontSize: 14, fontFamily: "Inter_400Regular" },
-  typeFilterRow: { flexDirection: "row", gap: 8 },
+  typeFilterRow: { flexDirection: "row", gap: 8, marginBottom: 8 },
   typeBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: "#333" },
   typeBtnActive: { backgroundColor: "#c8a951" + "30", borderColor: "#c8a951" },
   typeBtnText: { color: "#888", fontSize: 12, fontFamily: "Inter_600SemiBold" },
   typeBtnTextActive: { color: "#c8a951" },
+  cityRow: { paddingVertical: 4, gap: 8, paddingHorizontal: 2 },
+  cityBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: "#333", backgroundColor: "#111" },
+  cityBtnActive: { backgroundColor: "#9c27b0" + "30", borderColor: "#9c27b0" },
+  cityBtnText: { color: "#888", fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  cityBtnTextActive: { color: "#ce93d8" },
   tabBar: { flexDirection: "row", paddingHorizontal: 16, gap: 8, marginBottom: 12 },
   tabBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "#333" },
   tabBtnActive: { backgroundColor: "#c8a951", borderColor: "#c8a951" },

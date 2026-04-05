@@ -143,7 +143,7 @@ export default function ProviderActiveScreen() {
                     </Text>
                   </View>
                 </View>
-                <Text style={[styles.jobPrice, { color: colors.primary }]}>{item.price} ر.س</Text>
+                <Text style={[styles.jobPrice, { color: colors.primary }]}>{item.price} د.أ</Text>
               </View>
 
               <View style={[styles.divider, { backgroundColor: colors.border }]} />

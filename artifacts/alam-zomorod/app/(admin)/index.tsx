@@ -25,7 +25,7 @@ export default function AdminDashboard() {
     { label: "إجمالي المزودين", value: providers.length, icon: "users", color: "#9c27b0", sub: `${pendingProviders.length} بانتظار الموافقة` },
     { label: "إجمالي الطلبات", value: requests.length, icon: "clipboard", color: "#2196f3", sub: `${activeRequests.length} نشط` },
     { label: "طلبات منجزة", value: completedRequests.length, icon: "check-circle", color: "#4caf50", sub: "إجمالي" },
-    { label: "إيرادات العمولات", value: `${totalRevenue.toFixed(0)} ر.س`, icon: "trending-up", color: "#c8a951", sub: "مجموع العمولات" },
+    { label: "إيرادات العمولات", value: `${totalRevenue.toFixed(0)} د.أ`, icon: "trending-up", color: "#c8a951", sub: "مجموع العمولات" },
   ];
 
   const quickActions = [
@@ -113,7 +113,7 @@ export default function AdminDashboard() {
             <Text style={styles.recentCustomer}>{r.customerName}</Text>
           </View>
           <Text style={[styles.recentPrice, { color: "#c8a951" }]}>
-            {r.price} ر.س
+            {r.price} د.أ
           </Text>
         </View>
       ))}

@@ -206,7 +206,7 @@ export default function RequestServiceScreen() {
                         <Feather name="clock" size={12} color={colors.mutedForeground} />
                         <Text style={[styles.svcMetaText, { color: colors.mutedForeground }]}> {svc.duration} دقيقة</Text>
                       </View>
-                      <Text style={[styles.svcPrice, { color: colors.primary }]}>من {svc.basePrice} ر.س</Text>
+                      <Text style={[styles.svcPrice, { color: colors.primary }]}>من {svc.basePrice} د.أ</Text>
                     </View>
                   </TouchableOpacity>
                 );
@@ -237,7 +237,7 @@ export default function RequestServiceScreen() {
               </View>
               {selectedServiceObjects.map((svc, i) => (
                 <View key={svc.id} style={[styles.selectedSvcRow, i < selectedServiceObjects.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
-                  <Text style={[styles.selectedSvcPrice, { color: colors.primary }]}>{svc.basePrice} ر.س</Text>
+                  <Text style={[styles.selectedSvcPrice, { color: colors.primary }]}>{svc.basePrice} د.أ</Text>
                   <View style={styles.selectedSvcInfo}>
                     <Text style={[styles.selectedSvcName, { color: colors.foreground }]}>{svc.name}</Text>
                     <Text style={[styles.selectedSvcCat, { color: colors.mutedForeground }]}>
@@ -357,7 +357,7 @@ export default function RequestServiceScreen() {
               <View style={[styles.couponSuccess, { backgroundColor: colors.success + "15", borderColor: colors.success + "30" }]}>
                 <Feather name="check-circle" size={14} color={colors.success} />
                 <Text style={[styles.couponSuccessText, { color: colors.success }]}>
-                  تم تطبيق كوبون {appliedCoupon.code} — خصم {appliedCoupon.type === "percent" ? `${appliedCoupon.value}%` : `${appliedCoupon.value} ر.س`}
+                  تم تطبيق كوبون {appliedCoupon.code} — خصم {appliedCoupon.type === "percent" ? `${appliedCoupon.value}%` : `${appliedCoupon.value} د.أ`}
                 </Text>
               </View>
             )}
@@ -378,19 +378,19 @@ export default function RequestServiceScreen() {
             <View style={[styles.priceSummary, { backgroundColor: colors.card, borderColor: colors.border }]}>
               {selectedServiceObjects.map((svc) => (
                 <View key={svc.id} style={styles.priceRow}>
-                  <Text style={[styles.priceValue, { color: colors.foreground }]}>{svc.basePrice} ر.س</Text>
+                  <Text style={[styles.priceValue, { color: colors.foreground }]}>{svc.basePrice} د.أ</Text>
                   <Text style={[styles.priceLabel, { color: colors.mutedForeground }]}>{svc.name}</Text>
                 </View>
               ))}
               {appliedCoupon && (
                 <View style={styles.priceRow}>
-                  <Text style={[styles.priceValue, { color: colors.destructive }]}>- {discountAmount} ر.س</Text>
+                  <Text style={[styles.priceValue, { color: colors.destructive }]}>- {discountAmount} د.أ</Text>
                   <Text style={[styles.priceLabel, { color: colors.mutedForeground }]}>الخصم</Text>
                 </View>
               )}
               <View style={[styles.priceDivider, { backgroundColor: colors.border }]} />
               <View style={styles.priceRow}>
-                <Text style={[styles.priceFinal, { color: colors.primary }]}>{finalPrice} ر.س</Text>
+                <Text style={[styles.priceFinal, { color: colors.primary }]}>{finalPrice} د.أ</Text>
                 <Text style={[styles.priceFinalLabel, { color: colors.foreground }]}>الإجمالي</Text>
               </View>
             </View>

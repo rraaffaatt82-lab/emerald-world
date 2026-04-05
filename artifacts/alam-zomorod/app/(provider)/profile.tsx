@@ -21,7 +21,7 @@ import { toHijriShort } from "@/utils/date";
 import { StarRating } from "@/components/ui/StarRating";
 import { Badge } from "@/components/ui/Badge";
 
-type TabKey = "overview" | "services" | "wallet" | "notifications";
+type TabKey = "overview" | "services" | "wallet" | "notifications" | "packages" | "portfolio";
 
 export default function ProviderProfileScreen() {
   const colors = useColors();
@@ -31,6 +31,8 @@ export default function ProviderProfileScreen() {
     providers, updateProvider, getRequestsByProvider, walletTransactions,
     requestWalletTopup, notifications, markNotificationRead, markAllRead,
     customProviderServices, addCustomProviderService, deleteCustomProviderService,
+    addPortfolioPhoto, removePortfolioPhoto, submitProfileChangeRequest,
+    setProviderRadius, packages, addPackage, deletePackage,
   } = useData();
   const webTopPad = Platform.OS === "web" ? 67 : 0;
   const webBottomPad = Platform.OS === "web" ? 34 : 0;
@@ -52,6 +54,25 @@ export default function ProviderProfileScreen() {
   const [editBio, setEditBio] = useState("");
   const [editLocation, setEditLocation] = useState("");
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [showPhoneEditModal, setShowPhoneEditModal] = useState(false);
+  const [newPhone, setNewPhone] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpValue, setOtpValue] = useState("");
+  const [otpError, setOtpError] = useState("");
+  const [phoneSubmitSuccess, setPhoneSubmitSuccess] = useState(false);
+  const [showPortfolioAdd, setShowPortfolioAdd] = useState(false);
+  const [portfolioUrl, setPortfolioUrl] = useState("");
+  const [portfolioCaption, setPortfolioCaption] = useState("");
+  const [portfolioRemoveId, setPortfolioRemoveId] = useState<string | null>(null);
+  const [showAddPackage, setShowAddPackage] = useState(false);
+  const [pkgName, setPkgName] = useState("");
+  const [pkgDesc, setPkgDesc] = useState("");
+  const [pkgPrice, setPkgPrice] = useState("");
+  const [pkgDuration, setPkgDuration] = useState("");
+  const [pkgSessions, setPkgSessions] = useState("");
+  const [pkgError, setPkgError] = useState("");
+  const [pkgDeleteId, setPkgDeleteId] = useState<string | null>(null);
+  const [editRadius, setEditRadius] = useState("");
 
   const provider = providers.find((p) => p.id === user?.id);
   const myJobs = getRequestsByProvider(user?.id || "");
@@ -138,11 +159,16 @@ export default function ProviderProfileScreen() {
 
   const myCustomServices = customProviderServices.filter((s) => s.providerId === user?.id);
 
+  const myPackages = (packages || []).filter((p: any) => p.providerId === user?.id);
+  const myPortfolio = provider?.portfolioPhotos || [];
+
   const tabs: { key: TabKey; label: string; icon: string }[] = [
     { key: "overview", label: "الملف", icon: "user" },
     { key: "services", label: "الخدمات", icon: "list" },
+    { key: "packages", label: "الباقات", icon: "package" },
+    { key: "portfolio", label: "أعمالي", icon: "image" },
     { key: "wallet", label: "المحفظة", icon: "credit-card" },
-    { key: "notifications", label: unreadCount > 0 ? `إشعارات (${unreadCount})` : "إشعارات", icon: "bell" },
+    { key: "notifications", label: unreadCount > 0 ? `(${unreadCount})` : "إشعارات", icon: "bell" },
   ];
 
   return (
@@ -191,7 +217,7 @@ export default function ProviderProfileScreen() {
           <View style={styles.statDiv} />
           <View style={styles.stat}>
             <Text style={styles.statVal}>{provider?.walletBalance || 0}</Text>
-            <Text style={styles.statLab}>ر.س رصيد</Text>
+            <Text style={styles.statLab}>د.أ رصيد</Text>
           </View>
         </View>
       </View>
@@ -258,11 +284,65 @@ export default function ProviderProfileScreen() {
               </TouchableOpacity>
               <Text style={[styles.infoTitle, { color: colors.foreground }]}>معلومات الحساب</Text>
             </View>
-            <InfoRow icon="phone" label="رقم الهاتف" value={provider?.phone || user?.phone || "—"} colors={colors} />
+            <View style={[styles.infoRow, { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+              <TouchableOpacity
+                style={[styles.editProfileBtn, { backgroundColor: colors.primary + "15" }]}
+                onPress={() => { setNewPhone(provider?.phone || user?.phone || ""); setOtpSent(false); setOtpValue(""); setOtpError(""); setPhoneSubmitSuccess(false); setShowPhoneEditModal(true); }}
+              >
+                <Feather name="edit-2" size={12} color={colors.primary} />
+                <Text style={[styles.editProfileBtnText, { color: colors.primary, fontSize: 12 }]}>تعديل</Text>
+              </TouchableOpacity>
+              <View style={styles.infoLabel}>
+                <Text style={[styles.infoLabelText, { color: colors.mutedForeground }]}>رقم الهاتف</Text>
+                <Feather name="phone" size={14} color={colors.mutedForeground} />
+              </View>
+              <Text style={[styles.infoValue, { color: colors.foreground }]}>{provider?.phone || user?.phone || "—"}</Text>
+            </View>
+            {provider?.pendingProfileChange && (
+              <View style={{ backgroundColor: "#ff9800" + "20", borderRadius: 10, padding: 10, gap: 4 }}>
+                <Text style={{ color: "#ff9800", fontSize: 13, fontFamily: "Inter_700Bold", textAlign: "right" }}>⏳ طلب تعديل قيد المراجعة</Text>
+                {provider.pendingProfileChange.phone && (
+                  <Text style={{ color: "#aaa", fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "right" }}>رقم مطلوب: {provider.pendingProfileChange.phone}</Text>
+                )}
+              </View>
+            )}
             <InfoRow icon="map-pin" label="الموقع" value={provider?.location.address || "—"} colors={colors} />
             <InfoRow icon="calendar" label="تاريخ الانضمام" value={provider?.joinedAt || "—"} colors={colors} />
             <InfoRow icon="percent" label="نسبة العمولة" value={`${provider?.commission || 15}%`} colors={colors} />
             <InfoRow icon="gift" label="خدمات مجانية متبقية" value={String(provider?.freeServicesLeft || 0)} colors={colors} />
+          </View>
+
+          <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.infoTitle, { color: colors.foreground }]}>نطاق الخدمة</Text>
+            <Text style={[styles.sectionNote, { color: colors.mutedForeground }]}>
+              حدد نطاق الخدمة بالكيلومتر — ستصلك الطلبات ضمن هذا النطاق من موقعك
+            </Text>
+            <View style={{ flexDirection: "row", gap: 10, alignItems: "center", marginTop: 4 }}>
+              <TouchableOpacity
+                style={[styles.editProfileBtn, { backgroundColor: colors.primary, paddingVertical: 10, paddingHorizontal: 16 }]}
+                onPress={() => {
+                  if (!provider || !user) return;
+                  const r = parseFloat(editRadius);
+                  if (isNaN(r) || r <= 0) return;
+                  setProviderRadius(provider.id, r);
+                  setEditRadius("");
+                }}
+              >
+                <Text style={[styles.editProfileBtnText, { color: "#fff" }]}>حفظ</Text>
+              </TouchableOpacity>
+              <TextInput
+                style={[styles.input, { flex: 1, color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card, textAlign: "right" }]}
+                value={editRadius}
+                onChangeText={setEditRadius}
+                placeholder={`الحالي: ${provider?.serviceRadiusKm || 10} كم`}
+                placeholderTextColor={colors.mutedForeground}
+                keyboardType="numeric"
+              />
+              <View style={{ alignItems: "center", gap: 2 }}>
+                <Text style={{ color: colors.primary, fontSize: 20, fontFamily: "Inter_700Bold" }}>{provider?.serviceRadiusKm || 10}</Text>
+                <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular" }}>كم</Text>
+              </View>
+            </View>
           </View>
 
           <TouchableOpacity style={[styles.logoutBtn, { borderColor: colors.destructive }]} onPress={() => setShowLogoutConfirm(true)}>
@@ -303,7 +383,7 @@ export default function ProviderProfileScreen() {
                   />
                   <View style={styles.servicePriceArea}>
                     <Text style={[styles.serviceCustomPrice, { color: colors.primary }]}>
-                      {ps ? `${ps.customPrice} ر.س` : `${s.basePrice} ر.س`}
+                      {ps ? `${ps.customPrice} د.أ` : `${s.basePrice} د.أ`}
                     </Text>
                     <Text style={[styles.serviceDuration, { color: colors.mutedForeground }]}>{s.duration} د</Text>
                   </View>
@@ -363,7 +443,7 @@ export default function ProviderProfileScreen() {
                       <Text style={[styles.customSvcDesc, { color: colors.mutedForeground }]}>{svc.description}</Text>
                     ) : null}
                     <View style={styles.customSvcMeta}>
-                      <Text style={[styles.customSvcPrice, { color: colors.primary }]}>{svc.price} ر.س</Text>
+                      <Text style={[styles.customSvcPrice, { color: colors.primary }]}>{svc.price} د.أ</Text>
                       {svc.duration ? (
                         <Text style={[styles.customSvcDur, { color: colors.mutedForeground }]}>{svc.duration} دقيقة</Text>
                       ) : null}
@@ -380,7 +460,7 @@ export default function ProviderProfileScreen() {
         <>
           <View style={[styles.balanceCard, { backgroundColor: colors.primary }]}>
             <Text style={styles.balanceLabel}>رصيدك الحالي</Text>
-            <Text style={styles.balanceValue}>{(provider?.walletBalance || 0).toFixed(2)} ر.س</Text>
+            <Text style={styles.balanceValue}>{(provider?.walletBalance || 0).toFixed(2)} د.أ</Text>
             <TouchableOpacity
               style={styles.topupBtn}
               onPress={() => setShowTopupModal(true)}
@@ -407,7 +487,7 @@ export default function ProviderProfileScreen() {
                 <Text style={[styles.txDate, { color: colors.mutedForeground }]}>{tx.date}</Text>
               </View>
               <Text style={[styles.txAmount, { color: tx.type === "credit" ? colors.success : colors.destructive }]}>
-                {tx.type === "credit" ? "+" : "-"}{tx.amount.toFixed(2)} ر.س
+                {tx.type === "credit" ? "+" : "-"}{tx.amount.toFixed(2)} د.أ
               </Text>
             </View>
           ))}
@@ -459,6 +539,92 @@ export default function ProviderProfileScreen() {
         </>
       )}
 
+      {tab === "packages" && (
+        <>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <TouchableOpacity
+              style={[styles.addSvcBtn, { backgroundColor: colors.primary }]}
+              onPress={() => { setPkgName(""); setPkgDesc(""); setPkgPrice(""); setPkgDuration(""); setPkgSessions(""); setPkgError(""); setShowAddPackage(true); }}
+            >
+              <Feather name="plus" size={14} color="#fff" />
+              <Text style={styles.addSvcBtnText}>باقة جديدة</Text>
+            </TouchableOpacity>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>باقات الخدمات</Text>
+          </View>
+          <Text style={[styles.sectionNote, { color: colors.mutedForeground }]}>
+            أضف باقات مجمّعة بسعر خاص (مثال: باقة العروس، 3 جلسات شعر)
+          </Text>
+          {myPackages.length === 0 && (
+            <View style={[styles.emptyCustom, { borderColor: colors.border }]}>
+              <Feather name="package" size={32} color={colors.mutedForeground} />
+              <Text style={[styles.emptyCustomText, { color: colors.mutedForeground }]}>لا توجد باقات بعد — أضف أول باقة</Text>
+            </View>
+          )}
+          {myPackages.map((pkg: any) => (
+            <View key={pkg.id} style={[styles.customSvcRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <TouchableOpacity
+                style={[styles.deleteSvcBtn, { backgroundColor: colors.destructive + "20" }]}
+                onPress={() => setPkgDeleteId(pkg.id)}
+              >
+                <Feather name="trash-2" size={14} color={colors.destructive} />
+              </TouchableOpacity>
+              <View style={{ flex: 1, alignItems: "flex-end", gap: 4 }}>
+                <Text style={[styles.customSvcName, { color: colors.foreground }]}>{pkg.title}</Text>
+                {pkg.description ? <Text style={[styles.customSvcDesc, { color: colors.mutedForeground }]}>{pkg.description}</Text> : null}
+                <View style={styles.customSvcMeta}>
+                  {pkg.sessionsCount && <Text style={[styles.customSvcDur, { color: colors.mutedForeground }]}>{pkg.sessionsCount} جلسة</Text>}
+                  {pkg.durationMinutes && <Text style={[styles.customSvcDur, { color: colors.mutedForeground }]}>{pkg.durationMinutes} دقيقة</Text>}
+                  <Text style={[styles.customSvcPrice, { color: colors.primary }]}>{pkg.price} د.أ</Text>
+                </View>
+              </View>
+            </View>
+          ))}
+        </>
+      )}
+
+      {tab === "portfolio" && (
+        <>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <TouchableOpacity
+              style={[styles.addSvcBtn, { backgroundColor: colors.primary }]}
+              onPress={() => { setPortfolioUrl(""); setPortfolioCaption(""); setShowPortfolioAdd(true); }}
+            >
+              <Feather name="plus" size={14} color="#fff" />
+              <Text style={styles.addSvcBtnText}>إضافة صورة</Text>
+            </TouchableOpacity>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>معرض أعمالي</Text>
+          </View>
+          <Text style={[styles.sectionNote, { color: colors.mutedForeground }]}>
+            أضف صور أعمالك السابقة — ستظهر للعملاء في عروضك
+          </Text>
+          {myPortfolio.length === 0 && (
+            <View style={[styles.emptyCustom, { borderColor: colors.border }]}>
+              <Feather name="image" size={32} color={colors.mutedForeground} />
+              <Text style={[styles.emptyCustomText, { color: colors.mutedForeground }]}>لا توجد صور بعد — أضف أولى أعمالك</Text>
+            </View>
+          )}
+          {myPortfolio.map((photo: any) => (
+            <View key={photo.id} style={[styles.customSvcRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <TouchableOpacity
+                style={[styles.deleteSvcBtn, { backgroundColor: colors.destructive + "20" }]}
+                onPress={() => setPortfolioRemoveId(photo.id)}
+              >
+                <Feather name="trash-2" size={14} color={colors.destructive} />
+              </TouchableOpacity>
+              <View style={{ flex: 1, alignItems: "flex-end", gap: 4 }}>
+                <View style={{ width: 56, height: 56, borderRadius: 10, backgroundColor: colors.muted, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border, overflow: "hidden" }}>
+                  <Feather name="image" size={24} color={colors.mutedForeground} />
+                </View>
+                <Text style={{ color: colors.foreground, fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "right" }} numberOfLines={1}>{photo.uri}</Text>
+                {photo.caption ? <Text style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "right" }}>{photo.caption}</Text> : null}
+                <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular" }}>{photo.uploadedAt}</Text>
+              </View>
+              <Feather name="image" size={20} color={colors.primary} />
+            </View>
+          ))}
+        </>
+      )}
+
       <Modal
         visible={showAddSvcModal}
         transparent
@@ -507,7 +673,7 @@ export default function ProviderProfileScreen() {
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.fieldLabel, { color: colors.foreground }]}>السعر (ر.س) *</Text>
+                <Text style={[styles.fieldLabel, { color: colors.foreground }]}>السعر (د.أ) *</Text>
                 <TextInput
                   style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
                   value={newSvcPrice}
@@ -562,7 +728,7 @@ export default function ProviderProfileScreen() {
                   <Text style={[styles.modalDesc, { color: colors.mutedForeground }]}>
                     سيتم مراجعة طلبك من قبل الإدارة وإشعارك فور الموافقة
                   </Text>
-                  <Text style={[styles.fieldLabel, { color: colors.foreground }]}>المبلغ المطلوب (ر.س) *</Text>
+                  <Text style={[styles.fieldLabel, { color: colors.foreground }]}>المبلغ المطلوب (د.أ) *</Text>
                   <TextInput
                     style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: topupError ? colors.destructive : colors.border }]}
                     value={topupAmount}
@@ -670,6 +836,285 @@ export default function ProviderProfileScreen() {
                 onPress={() => { if (deleteConfirmId) deleteCustomProviderService(deleteConfirmId); setDeleteConfirmId(null); }}
               >
                 <Text style={styles.confirmDeleteText}>حذف</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal visible={showPhoneEditModal} transparent animationType="slide" onRequestClose={() => setShowPhoneEditModal(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowPhoneEditModal(false)}>
+          <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+            <View style={[styles.modal, { backgroundColor: colors.card }]}>
+              <View style={styles.modalHeader}>
+                <TouchableOpacity onPress={() => setShowPhoneEditModal(false)}>
+                  <Feather name="x" size={22} color={colors.foreground} />
+                </TouchableOpacity>
+                <Text style={[styles.modalTitle, { color: colors.foreground }]}>تعديل رقم الهاتف</Text>
+              </View>
+              {phoneSubmitSuccess ? (
+                <View style={{ alignItems: "center", gap: 16, paddingVertical: 16 }}>
+                  <Feather name="clock" size={40} color="#ff9800" />
+                  <Text style={{ color: colors.foreground, fontSize: 16, fontFamily: "Inter_700Bold", textAlign: "center" }}>طلبك قيد المراجعة</Text>
+                  <Text style={{ color: colors.mutedForeground, fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 22 }}>
+                    تم إرسال طلب تغيير الرقم للإدارة. ستُعلَمين بالنتيجة خلال 24 ساعة.
+                  </Text>
+                  <TouchableOpacity style={[styles.topupSubmitBtn, { backgroundColor: colors.primary }]} onPress={() => setShowPhoneEditModal(false)}>
+                    <Text style={styles.topupSubmitText}>موافق</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : !otpSent ? (
+                <>
+                  <Text style={[styles.modalDesc, { color: colors.mutedForeground }]}>
+                    أدخل الرقم الجديد — سيُرسل رمز OTP للتحقق قبل إرسال الطلب للإدارة
+                  </Text>
+                  <Text style={[styles.fieldLabel, { color: colors.foreground }]}>رقم الهاتف الجديد</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+                    value={newPhone}
+                    onChangeText={setNewPhone}
+                    placeholder="0791234567"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="phone-pad"
+                    textAlign="right"
+                  />
+                  <TouchableOpacity
+                    style={[styles.topupSubmitBtn, { backgroundColor: colors.primary, opacity: newPhone.trim() ? 1 : 0.5 }]}
+                    disabled={!newPhone.trim()}
+                    onPress={() => { setOtpSent(true); setOtpValue(""); setOtpError(""); }}
+                  >
+                    <Feather name="send" size={18} color="#fff" />
+                    <Text style={styles.topupSubmitText}>إرسال رمز التحقق</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <View style={{ backgroundColor: colors.success + "15", borderRadius: 12, padding: 12, marginBottom: 4 }}>
+                    <Text style={{ color: colors.success, fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "center" }}>
+                      📱 تم إرسال رمز OTP إلى {newPhone}
+                    </Text>
+                    <Text style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center", marginTop: 4 }}>
+                      (للتجربة: الرمز هو 1234)
+                    </Text>
+                  </View>
+                  <Text style={[styles.fieldLabel, { color: colors.foreground }]}>رمز التحقق</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: otpError ? colors.destructive : colors.border, fontSize: 24, textAlign: "center", letterSpacing: 8 }]}
+                    value={otpValue}
+                    onChangeText={setOtpValue}
+                    placeholder="_ _ _ _"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="numeric"
+                    maxLength={4}
+                  />
+                  {otpError ? <Text style={{ color: colors.destructive, fontSize: 13, textAlign: "center", fontFamily: "Inter_400Regular" }}>{otpError}</Text> : null}
+                  <TouchableOpacity
+                    style={[styles.topupSubmitBtn, { backgroundColor: colors.primary, opacity: otpValue.length === 4 ? 1 : 0.5 }]}
+                    disabled={otpValue.length !== 4}
+                    onPress={() => {
+                      if (otpValue !== "1234") { setOtpError("رمز التحقق غير صحيح، حاولي مجدداً"); return; }
+                      if (!provider || !user) return;
+                      submitProfileChangeRequest(provider.id, { phone: newPhone.trim() });
+                      setPhoneSubmitSuccess(true);
+                    }}
+                  >
+                    <Feather name="check-circle" size={18} color="#fff" />
+                    <Text style={styles.topupSubmitText}>تأكيد وإرسال للإدارة</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setOtpSent(false)} style={{ alignItems: "center", paddingVertical: 8 }}>
+                    <Text style={{ color: colors.mutedForeground, fontSize: 13, fontFamily: "Inter_400Regular" }}>تغيير الرقم ← إعادة الإرسال</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal visible={showAddPackage} transparent animationType="slide" onRequestClose={() => setShowAddPackage(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowAddPackage(false)}>
+          <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+            <View style={[styles.modal, { backgroundColor: colors.card }]}>
+              <View style={styles.modalHeader}>
+                <TouchableOpacity onPress={() => setShowAddPackage(false)}>
+                  <Feather name="x" size={22} color={colors.foreground} />
+                </TouchableOpacity>
+                <Text style={[styles.modalTitle, { color: colors.foreground }]}>إضافة باقة جديدة</Text>
+              </View>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>اسم الباقة *</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+                value={pkgName}
+                onChangeText={setPkgName}
+                placeholder="مثال: باقة العروس الشاملة"
+                placeholderTextColor={colors.mutedForeground}
+                textAlign="right"
+              />
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>الوصف</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+                value={pkgDesc}
+                onChangeText={setPkgDesc}
+                placeholder="ما تشمله الباقة..."
+                placeholderTextColor={colors.mutedForeground}
+                multiline
+                numberOfLines={2}
+                textAlign="right"
+              />
+              <View style={styles.addSvcPriceRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.fieldLabel, { color: colors.foreground }]}>عدد الجلسات</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+                    value={pkgSessions}
+                    onChangeText={setPkgSessions}
+                    keyboardType="numeric"
+                    placeholder="3"
+                    placeholderTextColor={colors.mutedForeground}
+                    textAlign="right"
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.fieldLabel, { color: colors.foreground }]}>المدة (دقيقة)</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+                    value={pkgDuration}
+                    onChangeText={setPkgDuration}
+                    keyboardType="numeric"
+                    placeholder="120"
+                    placeholderTextColor={colors.mutedForeground}
+                    textAlign="right"
+                  />
+                </View>
+              </View>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>السعر الإجمالي (د.أ) *</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+                value={pkgPrice}
+                onChangeText={setPkgPrice}
+                keyboardType="numeric"
+                placeholder="350"
+                placeholderTextColor={colors.mutedForeground}
+                textAlign="right"
+              />
+              {pkgError ? <Text style={{ color: colors.destructive, fontSize: 12, textAlign: "right", fontFamily: "Inter_400Regular" }}>{pkgError}</Text> : null}
+              <TouchableOpacity
+                style={[styles.topupSubmitBtn, { backgroundColor: colors.primary, opacity: pkgName.trim() && pkgPrice ? 1 : 0.5 }]}
+                disabled={!pkgName.trim() || !pkgPrice}
+                onPress={() => {
+                  const price = parseFloat(pkgPrice);
+                  if (isNaN(price) || price <= 0) { setPkgError("يرجى إدخال سعر صحيح"); return; }
+                  if (!user) return;
+                  addPackage({
+                    providerId: user.id,
+                    providerName: user.name,
+                    title: pkgName.trim(),
+                    description: pkgDesc.trim(),
+                    price,
+                    originalPrice: price,
+                    serviceIds: [],
+                    serviceNames: [],
+                    durationMinutes: parseInt(pkgDuration) || undefined,
+                    sessionsCount: parseInt(pkgSessions) || undefined,
+                  });
+                  setShowAddPackage(false);
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                }}
+              >
+                <Feather name="package" size={18} color="#fff" />
+                <Text style={styles.topupSubmitText}>حفظ الباقة</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal visible={!!pkgDeleteId} transparent animationType="fade" onRequestClose={() => setPkgDeleteId(null)}>
+        <TouchableOpacity style={styles.confirmOverlay} activeOpacity={1} onPress={() => setPkgDeleteId(null)}>
+          <TouchableOpacity activeOpacity={1} style={[styles.confirmBox, { backgroundColor: colors.card }]} onPress={(e) => e.stopPropagation()}>
+            <Text style={[styles.confirmTitle, { color: colors.foreground }]}>حذف الباقة</Text>
+            <Text style={[styles.confirmMsg, { color: colors.mutedForeground }]}>هل تريدين حذف هذه الباقة نهائياً؟</Text>
+            <View style={styles.confirmActions}>
+              <TouchableOpacity style={[styles.confirmCancel, { borderColor: colors.border }]} onPress={() => setPkgDeleteId(null)}>
+                <Text style={[styles.confirmCancelText, { color: colors.foreground }]}>إلغاء</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmDelete, { backgroundColor: colors.destructive }]}
+                onPress={() => { if (pkgDeleteId) deletePackage(pkgDeleteId); setPkgDeleteId(null); }}
+              >
+                <Text style={styles.confirmDeleteText}>حذف</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal visible={showPortfolioAdd} transparent animationType="slide" onRequestClose={() => setShowPortfolioAdd(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowPortfolioAdd(false)}>
+          <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+            <View style={[styles.modal, { backgroundColor: colors.card }]}>
+              <View style={styles.modalHeader}>
+                <TouchableOpacity onPress={() => setShowPortfolioAdd(false)}>
+                  <Feather name="x" size={22} color={colors.foreground} />
+                </TouchableOpacity>
+                <Text style={[styles.modalTitle, { color: colors.foreground }]}>إضافة صورة لمعرض الأعمال</Text>
+              </View>
+              <Text style={[styles.modalDesc, { color: colors.mutedForeground }]}>
+                أدخل رابط الصورة (URL) وتعليقاً اختيارياً — ستظهر للعملاء في عروضك
+              </Text>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>رابط الصورة *</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+                value={portfolioUrl}
+                onChangeText={setPortfolioUrl}
+                placeholder="https://..."
+                placeholderTextColor={colors.mutedForeground}
+                textAlign="right"
+                autoCapitalize="none"
+              />
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>تعليق (اختياري)</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+                value={portfolioCaption}
+                onChangeText={setPortfolioCaption}
+                placeholder="مثال: قص وصبغ شعر العروس"
+                placeholderTextColor={colors.mutedForeground}
+                textAlign="right"
+              />
+              <TouchableOpacity
+                style={[styles.topupSubmitBtn, { backgroundColor: colors.primary, opacity: portfolioUrl.trim() ? 1 : 0.5 }]}
+                disabled={!portfolioUrl.trim()}
+                onPress={() => {
+                  if (!provider || !portfolioUrl.trim()) return;
+                  addPortfolioPhoto(provider.id, portfolioUrl.trim(), portfolioCaption.trim() || undefined);
+                  setShowPortfolioAdd(false);
+                  setPortfolioUrl("");
+                  setPortfolioCaption("");
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                }}
+              >
+                <Feather name="image" size={18} color="#fff" />
+                <Text style={styles.topupSubmitText}>إضافة للمعرض</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal visible={!!portfolioRemoveId} transparent animationType="fade" onRequestClose={() => setPortfolioRemoveId(null)}>
+        <TouchableOpacity style={styles.confirmOverlay} activeOpacity={1} onPress={() => setPortfolioRemoveId(null)}>
+          <TouchableOpacity activeOpacity={1} style={[styles.confirmBox, { backgroundColor: colors.card }]} onPress={(e) => e.stopPropagation()}>
+            <Text style={[styles.confirmTitle, { color: colors.foreground }]}>إزالة الصورة</Text>
+            <Text style={[styles.confirmMsg, { color: colors.mutedForeground }]}>هل تريدين إزالة هذه الصورة من معرض أعمالك؟</Text>
+            <View style={styles.confirmActions}>
+              <TouchableOpacity style={[styles.confirmCancel, { borderColor: colors.border }]} onPress={() => setPortfolioRemoveId(null)}>
+                <Text style={[styles.confirmCancelText, { color: colors.foreground }]}>إلغاء</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmDelete, { backgroundColor: colors.destructive }]}
+                onPress={() => { if (portfolioRemoveId && provider) removePortfolioPhoto(provider.id, portfolioRemoveId); setPortfolioRemoveId(null); }}
+              >
+                <Text style={styles.confirmDeleteText}>إزالة</Text>
               </TouchableOpacity>
             </View>
           </TouchableOpacity>
