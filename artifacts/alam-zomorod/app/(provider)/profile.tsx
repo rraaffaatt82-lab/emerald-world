@@ -1,8 +1,11 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
+import * as Location from "expo-location";
 import React, { useState } from "react";
 import {
+  Image,
   Modal,
   Platform,
   ScrollView,
@@ -73,6 +76,33 @@ export default function ProviderProfileScreen() {
   const [pkgError, setPkgError] = useState("");
   const [pkgDeleteId, setPkgDeleteId] = useState<string | null>(null);
   const [editRadius, setEditRadius] = useState("");
+  const [pickedPortfolioUri, setPickedPortfolioUri] = useState<string | null>(null);
+  const [detectingRadius, setDetectingRadius] = useState(false);
+
+  async function pickPortfolioPhoto() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setPickedPortfolioUri(result.assets[0].uri);
+    }
+  }
+
+  async function detectRadiusLocation() {
+    if (!provider) return;
+    setDetectingRadius(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === "granted") {
+        await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      }
+    } catch { }
+    setDetectingRadius(false);
+  }
 
   const provider = providers.find((p) => p.id === user?.id);
   const myJobs = getRequestsByProvider(user?.id || "");
@@ -313,35 +343,37 @@ export default function ProviderProfileScreen() {
           </View>
 
           <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[styles.infoTitle, { color: colors.foreground }]}>نطاق الخدمة</Text>
-            <Text style={[styles.sectionNote, { color: colors.mutedForeground }]}>
-              حدد نطاق الخدمة بالكيلومتر — ستصلك الطلبات ضمن هذا النطاق من موقعك
-            </Text>
-            <View style={{ flexDirection: "row", gap: 10, alignItems: "center", marginTop: 4 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
               <TouchableOpacity
-                style={[styles.editProfileBtn, { backgroundColor: colors.primary, paddingVertical: 10, paddingHorizontal: 16 }]}
-                onPress={() => {
-                  if (!provider || !user) return;
-                  const r = parseFloat(editRadius);
-                  if (isNaN(r) || r <= 0) return;
-                  setProviderRadius(provider.id, r);
-                  setEditRadius("");
-                }}
+                style={[styles.editProfileBtn, { backgroundColor: colors.primary + "15", borderWidth: 1, borderColor: colors.primary + "40", paddingVertical: 7, paddingHorizontal: 12 }]}
+                onPress={detectRadiusLocation}
+                disabled={detectingRadius}
               >
-                <Text style={[styles.editProfileBtnText, { color: "#fff" }]}>حفظ</Text>
+                <Feather name="navigation" size={14} color={colors.primary} />
+                <Text style={[styles.editProfileBtnText, { color: colors.primary, fontSize: 12 }]}>
+                  {detectingRadius ? "جارٍ..." : "تحديد موقعي"}
+                </Text>
               </TouchableOpacity>
-              <TextInput
-                style={[styles.input, { flex: 1, color: colors.foreground, borderColor: colors.border, backgroundColor: colors.card, textAlign: "right" }]}
-                value={editRadius}
-                onChangeText={setEditRadius}
-                placeholder={`الحالي: ${provider?.serviceRadiusKm || 10} كم`}
-                placeholderTextColor={colors.mutedForeground}
-                keyboardType="numeric"
-              />
-              <View style={{ alignItems: "center", gap: 2 }}>
-                <Text style={{ color: colors.primary, fontSize: 20, fontFamily: "Inter_700Bold" }}>{provider?.serviceRadiusKm || 10}</Text>
-                <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular" }}>كم</Text>
-              </View>
+              <Text style={[styles.infoTitle, { color: colors.foreground }]}>نطاق الخدمة</Text>
+            </View>
+            <Text style={[styles.sectionNote, { color: colors.mutedForeground }]}>
+              اختر نطاق الخدمة — ستصلك الطلبات ضمن هذه المسافة من موقعك الحالي
+            </Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "flex-end", marginTop: 8 }}>
+              {[5, 10, 15, 20, 30, 50].map((km) => {
+                const active = (provider?.serviceRadiusKm || 10) === km;
+                return (
+                  <TouchableOpacity
+                    key={km}
+                    style={[styles.radiusChip, { backgroundColor: active ? colors.primary : colors.muted, borderColor: active ? colors.primary : colors.border }]}
+                    onPress={() => { if (provider) setProviderRadius(provider.id, km); }}
+                  >
+                    <Text style={{ color: active ? "#fff" : colors.mutedForeground, fontSize: 13, fontFamily: active ? "Inter_700Bold" : "Inter_400Regular" }}>
+                      {km} كم
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
 
@@ -612,14 +644,14 @@ export default function ProviderProfileScreen() {
                 <Feather name="trash-2" size={14} color={colors.destructive} />
               </TouchableOpacity>
               <View style={{ flex: 1, alignItems: "flex-end", gap: 4 }}>
-                <View style={{ width: 56, height: 56, borderRadius: 10, backgroundColor: colors.muted, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border, overflow: "hidden" }}>
-                  <Feather name="image" size={24} color={colors.mutedForeground} />
-                </View>
-                <Text style={{ color: colors.foreground, fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "right" }} numberOfLines={1}>{photo.uri}</Text>
                 {photo.caption ? <Text style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "right" }}>{photo.caption}</Text> : null}
                 <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular" }}>{photo.uploadedAt}</Text>
               </View>
-              <Feather name="image" size={20} color={colors.primary} />
+              <Image
+                source={{ uri: photo.uri }}
+                style={{ width: 64, height: 64, borderRadius: 12, borderWidth: 1.5, borderColor: colors.primary + "60" }}
+                resizeMode="cover"
+              />
             </View>
           ))}
         </>
@@ -1060,18 +1092,24 @@ export default function ProviderProfileScreen() {
                 <Text style={[styles.modalTitle, { color: colors.foreground }]}>إضافة صورة لمعرض الأعمال</Text>
               </View>
               <Text style={[styles.modalDesc, { color: colors.mutedForeground }]}>
-                أدخل رابط الصورة (URL) وتعليقاً اختيارياً — ستظهر للعملاء في عروضك
+                اختر صورة من استوديو هاتفك — ستظهر للعملاء في عروضك
               </Text>
-              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>رابط الصورة *</Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
-                value={portfolioUrl}
-                onChangeText={setPortfolioUrl}
-                placeholder="https://..."
-                placeholderTextColor={colors.mutedForeground}
-                textAlign="right"
-                autoCapitalize="none"
-              />
+
+              <TouchableOpacity
+                style={[styles.topupSubmitBtn, { backgroundColor: colors.primary + "15", borderWidth: 1, borderColor: colors.primary + "40", marginBottom: 8 }]}
+                onPress={pickPortfolioPhoto}
+              >
+                <Feather name="camera" size={18} color={colors.primary} />
+                <Text style={{ color: colors.primary, fontSize: 15, fontFamily: "Inter_700Bold" }}>اختيار من الاستوديو</Text>
+              </TouchableOpacity>
+
+              {pickedPortfolioUri ? (
+                <View style={{ alignItems: "center", marginBottom: 8 }}>
+                  <Image source={{ uri: pickedPortfolioUri }} style={{ width: 120, height: 120, borderRadius: 14, borderWidth: 2, borderColor: colors.primary }} />
+                  <Text style={{ color: colors.primary, fontSize: 12, fontFamily: "Inter_600SemiBold", marginTop: 6 }}>✓ تم اختيار الصورة</Text>
+                </View>
+              ) : null}
+
               <Text style={[styles.fieldLabel, { color: colors.foreground }]}>تعليق (اختياري)</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
@@ -1082,13 +1120,13 @@ export default function ProviderProfileScreen() {
                 textAlign="right"
               />
               <TouchableOpacity
-                style={[styles.topupSubmitBtn, { backgroundColor: colors.primary, opacity: portfolioUrl.trim() ? 1 : 0.5 }]}
-                disabled={!portfolioUrl.trim()}
+                style={[styles.topupSubmitBtn, { backgroundColor: colors.primary, opacity: pickedPortfolioUri ? 1 : 0.4 }]}
+                disabled={!pickedPortfolioUri}
                 onPress={() => {
-                  if (!provider || !portfolioUrl.trim()) return;
-                  addPortfolioPhoto(provider.id, portfolioUrl.trim(), portfolioCaption.trim() || undefined);
+                  if (!provider || !pickedPortfolioUri) return;
+                  addPortfolioPhoto(provider.id, pickedPortfolioUri, portfolioCaption.trim() || undefined);
                   setShowPortfolioAdd(false);
-                  setPortfolioUrl("");
+                  setPickedPortfolioUri(null);
                   setPortfolioCaption("");
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 }}
@@ -1231,6 +1269,7 @@ const styles = StyleSheet.create({
   emptyCustomText: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 20 },
   customSvcRow: { flexDirection: "row", alignItems: "center", gap: 10, padding: 14, borderRadius: 14, borderWidth: 1 },
   deleteSvcBtn: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  radiusChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5 },
   customSvcNameRow: { flexDirection: "row", alignItems: "center", gap: 8, justifyContent: "flex-end" },
   customBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
   customBadgeText: { fontSize: 10, fontFamily: "Inter_700Bold" },

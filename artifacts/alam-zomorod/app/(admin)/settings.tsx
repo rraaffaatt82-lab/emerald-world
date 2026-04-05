@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import React, { useState } from "react";
-import { Modal, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Image, Modal, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useData } from "@/context/DataContext";
 import { useAuth } from "@/context/AuthContext";
@@ -22,6 +23,20 @@ export default function AdminSettingsScreen() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const webTopPad = Platform.OS === "web" ? 67 : 0;
   const webBottomPad = Platform.OS === "web" ? 34 : 0;
+
+  async function pickLogo() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setLogoUri(result.assets[0].uri);
+    }
+  }
 
   function handleSave() {
     const r = parseInt(radius);
@@ -134,25 +149,39 @@ export default function AdminSettingsScreen() {
         <Text style={styles.sectionTitle}>إعدادات واجهة التطبيق</Text>
         <View style={styles.fieldCard}>
           <View style={styles.fieldHeader}>
-            <TextInput
-              style={[styles.fieldInput, { fontSize: 13, flex: 1 }]}
-              value={logoUri}
-              onChangeText={setLogoUri}
-              placeholder="رابط صورة الشعار (URL)"
-              placeholderTextColor="#555"
-              textAlign="right"
-            />
+            <View style={{ flex: 1 }} />
             <View style={styles.fieldLabel}>
               <Text style={styles.fieldLabelText}>شعار التطبيق</Text>
               <Feather name="image" size={16} color="#c8a951" />
             </View>
           </View>
-          <Text style={styles.fieldDesc}>أدخل رابط صورة الشعار (PNG/JPG). سيظهر في الشاشة الرئيسية بدلاً من الشعار الافتراضي.</Text>
-          {logoUri.trim() !== "" && (
-            <View style={{ backgroundColor: "#4caf5020", borderRadius: 8, padding: 8, marginTop: 4 }}>
-              <Text style={{ color: "#4caf50", fontSize: 12, fontFamily: "Inter_600SemiBold", textAlign: "right" }}>✓ سيُحدَّث الشعار عند الحفظ</Text>
+          <Text style={styles.fieldDesc}>اختر صورة الشعار من استوديو الهاتف (PNG/JPG) — سيظهر في شاشة الدخول بدلاً من الشعار الافتراضي</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginTop: 10 }}>
+            {logoUri ? (
+              <Image source={{ uri: logoUri }} style={{ width: 64, height: 64, borderRadius: 16, borderWidth: 2, borderColor: "#c8a951" }} />
+            ) : (
+              <View style={{ width: 64, height: 64, borderRadius: 16, backgroundColor: "#2a2a3e", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#333" }}>
+                <Feather name="image" size={24} color="#555" />
+              </View>
+            )}
+            <View style={{ flex: 1, gap: 8 }}>
+              <TouchableOpacity
+                style={{ backgroundColor: "#c8a951", paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, flexDirection: "row", alignItems: "center", gap: 8, justifyContent: "center" }}
+                onPress={pickLogo}
+              >
+                <Feather name="camera" size={16} color="#000" />
+                <Text style={{ color: "#000", fontSize: 13, fontFamily: "Inter_700Bold" }}>اختيار من الاستوديو</Text>
+              </TouchableOpacity>
+              {logoUri ? (
+                <TouchableOpacity
+                  style={{ paddingVertical: 8, alignItems: "center" }}
+                  onPress={() => setLogoUri("")}
+                >
+                  <Text style={{ color: "#f44336", fontSize: 12, fontFamily: "Inter_400Regular" }}>إزالة الشعار</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
-          )}
+          </View>
         </View>
       </View>
 

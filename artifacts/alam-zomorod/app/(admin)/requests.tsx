@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import React, { useState } from "react";
-import { FlatList, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { FlatList, Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useData } from "@/context/DataContext";
 
@@ -19,6 +19,7 @@ export default function AdminRequestsScreen() {
   const insets = useSafeAreaInsets();
   const { requests } = useData();
   const [tab, setTab] = useState<FilterTab>("all");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const webTopPad = Platform.OS === "web" ? 67 : 0;
   const webBottomPad = Platform.OS === "web" ? 34 : 0;
 
@@ -71,8 +72,13 @@ export default function AdminRequestsScreen() {
         )}
         renderItem={({ item }) => {
           const st = STATUS_LABELS[item.status] || { label: item.status, color: "#888" };
+          const isExpanded = expandedId === item.id;
           return (
-            <View style={styles.reqCard}>
+            <TouchableOpacity
+              style={styles.reqCard}
+              onPress={() => setExpandedId(isExpanded ? null : item.id)}
+              activeOpacity={0.85}
+            >
               <View style={styles.reqTop}>
                 <View style={[styles.statusPill, { backgroundColor: st.color + "20", borderColor: st.color + "50" }]}>
                   <Text style={[styles.statusText, { color: st.color }]}>{st.label}</Text>
@@ -85,26 +91,51 @@ export default function AdminRequestsScreen() {
 
               <View style={styles.reqDetails}>
                 <ReqRow icon="user" label="العميل" value={item.customerName} />
+                {item.customerPhone && (
+                  <TouchableOpacity onPress={() => Linking.openURL(`tel:${item.customerPhone}`)}>
+                    <ReqRow icon="phone" label="هاتف العميل" value={item.customerPhone} highlight />
+                  </TouchableOpacity>
+                )}
                 <ReqRow icon="map-pin" label="الموقع" value={item.address} />
                 <ReqRow icon="calendar" label="الموعد" value={new Date(item.scheduledAt).toLocaleDateString("ar-SA")} />
-                {item.providerName && <ReqRow icon="briefcase" label="المزود" value={item.providerName} />}
-                {item.price && <ReqRow icon="dollar-sign" label="السعر" value={`${item.price} د.أ`} />}
-                <ReqRow icon="clock" label="عروض" value={`${item.offers.length} عرض`} />
+                {item.price !== undefined && <ReqRow icon="dollar-sign" label="السعر" value={`${item.price} د.أ`} />}
+                {item.couponCode && <ReqRow icon="tag" label="كوبون" value={item.couponCode} />}
+                <ReqRow icon="clock" label="عدد العروض" value={`${item.offers.length} عرض`} />
               </View>
 
-              <View style={[styles.contactStatus, {
-                backgroundColor: item.contactRevealed ? "#4caf50" + "15" : "#888" + "15",
-              }]}>
-                <Feather
-                  name={item.contactRevealed ? "unlock" : "lock"}
-                  size={14}
-                  color={item.contactRevealed ? "#4caf50" : "#888"}
-                />
-                <Text style={[styles.contactStatusText, { color: item.contactRevealed ? "#4caf50" : "#888" }]}>
-                  {item.contactRevealed ? "معلومات الطرفين مكشوفة" : "معلومات الاتصال مخفية"}
-                </Text>
-              </View>
-            </View>
+              {item.offers.length > 0 && (
+                <>
+                  <View style={styles.offersDivider}>
+                    <Text style={styles.offersDividerText}>العروض المقدمة ({item.offers.length})</Text>
+                  </View>
+                  {item.offers.map((o) => (
+                    <View key={o.id} style={[styles.offerRow, { borderColor: o.status === "accepted" ? "#4caf50" + "50" : "#333" }]}>
+                      <View style={styles.offerRowLeft}>
+                        <View style={[styles.offerStatusDot, { backgroundColor: o.status === "accepted" ? "#4caf50" : o.status === "rejected" ? "#f44336" : "#888" }]} />
+                        <Text style={styles.offerStatus}>
+                          {o.status === "accepted" ? "مقبول" : o.status === "rejected" ? "مرفوض" : "بانتظار"}
+                        </Text>
+                      </View>
+                      <View style={styles.offerRowRight}>
+                        <Text style={styles.offerProviderName}>{o.providerName}</Text>
+                        <Text style={styles.offerPrice}>{o.price} د.أ · {o.eta} دقيقة</Text>
+                        {o.note && <Text style={styles.offerNote}>💬 {o.note}</Text>}
+                      </View>
+                    </View>
+                  ))}
+                </>
+              )}
+
+              {item.providerName && (
+                <View style={[styles.contactStatus, { backgroundColor: "#4caf50" + "15" }]}>
+                  <Feather name="briefcase" size={14} color="#4caf50" />
+                  <Text style={[styles.contactStatusText, { color: "#4caf50" }]}>
+                    المزودة المقبولة: {item.providerName}
+                    {item.providerPhone ? ` — ☎ ${item.providerPhone}` : ""}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
           );
         }}
       />
@@ -112,13 +143,13 @@ export default function AdminRequestsScreen() {
   );
 }
 
-function ReqRow({ icon, label, value }: { icon: string; label: string; value: string }) {
+function ReqRow({ icon, label, value, highlight }: { icon: string; label: string; value: string; highlight?: boolean }) {
   return (
     <View style={styles.rowItem}>
-      <Text style={styles.rowValue}>{value}</Text>
+      <Text style={[styles.rowValue, highlight && { color: "#c8a951" }]}>{value}</Text>
       <View style={styles.rowLabel}>
         <Text style={styles.rowLabelText}>{label}</Text>
-        <Feather name={icon as any} size={13} color="#666" />
+        <Feather name={icon as any} size={13} color={highlight ? "#c8a951" : "#666"} />
       </View>
     </View>
   );
@@ -150,6 +181,16 @@ const styles = StyleSheet.create({
   rowLabel: { flexDirection: "row", alignItems: "center", gap: 6 },
   rowLabelText: { color: "#666", fontSize: 12, fontFamily: "Inter_400Regular" },
   rowValue: { color: "#aaa", fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "right", flex: 1, marginStart: 10 },
+  offersDivider: { backgroundColor: "#2a2a3e", paddingHorizontal: 16, paddingVertical: 8 },
+  offersDividerText: { color: "#c8a951", fontSize: 13, fontFamily: "Inter_700Bold", textAlign: "right" },
+  offerRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 1 },
+  offerRowLeft: { flexDirection: "row", alignItems: "center", gap: 6 },
+  offerStatusDot: { width: 8, height: 8, borderRadius: 4 },
+  offerStatus: { color: "#888", fontSize: 11, fontFamily: "Inter_400Regular" },
+  offerRowRight: { alignItems: "flex-end", flex: 1 },
+  offerProviderName: { color: "#fff", fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  offerPrice: { color: "#c8a951", fontSize: 12, fontFamily: "Inter_400Regular" },
+  offerNote: { color: "#666", fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 2 },
   contactStatus: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 10, gap: 8 },
   contactStatusText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
 });

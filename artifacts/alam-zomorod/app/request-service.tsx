@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
+import * as Location from "expo-location";
 import React, { useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -50,9 +51,25 @@ export default function RequestServiceScreen() {
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
   const [selectedHour, setSelectedHour] = useState("10:00");
   const [submitting, setSubmitting] = useState(false);
+  const [detectingLocation, setDetectingLocation] = useState(false);
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [couponError, setCouponError] = useState("");
+
+  async function detectLocation() {
+    setDetectingLocation(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") { setDetectingLocation(false); return; }
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const [geo] = await Location.reverseGeocodeAsync({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+      if (geo) {
+        const parts = [geo.street, geo.district, geo.city, geo.region].filter(Boolean);
+        setAddress(parts.join("، ") || `${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`);
+      }
+    } catch { }
+    setDetectingLocation(false);
+  }
   const webTopPad = Platform.OS === "web" ? 67 : 0;
 
   const catServices = selectedCat ? SERVICES.filter((s) => s.categoryId === selectedCat) : SERVICES;
@@ -265,14 +282,26 @@ export default function RequestServiceScreen() {
               </TouchableOpacity>
             </View>
 
-            <Text style={[styles.fieldLabel, { color: colors.foreground }]}>عنوانك</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+              <TouchableOpacity
+                style={[styles.gpsBtn, { backgroundColor: colors.primary + "15", borderColor: colors.primary + "40" }]}
+                onPress={detectLocation}
+                disabled={detectingLocation}
+              >
+                <Feather name="navigation" size={14} color={colors.primary} />
+                <Text style={[styles.gpsBtnText, { color: colors.primary }]}>
+                  {detectingLocation ? "جارٍ التحديد..." : "اكتشاف موقعي"}
+                </Text>
+              </TouchableOpacity>
+              <Text style={[styles.fieldLabel, { color: colors.foreground, marginBottom: 0 }]}>عنوانك</Text>
+            </View>
             <View style={[styles.inputWrap, { borderColor: address ? colors.primary : colors.border, backgroundColor: colors.muted }]}>
               <Feather name="map-pin" size={18} color={address ? colors.primary : colors.mutedForeground} />
               <TextInput
                 style={[styles.fieldInput, { color: colors.foreground }]}
                 value={address}
                 onChangeText={setAddress}
-                placeholder="أدخلي عنوانك بالتفصيل"
+                placeholder="أدخلي عنوانك أو اضغطي اكتشاف موقعي"
                 placeholderTextColor={colors.mutedForeground}
                 textAlign="right"
               />
@@ -464,6 +493,8 @@ const styles = StyleSheet.create({
   removeSvcBtn: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   addMoreBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 12, borderTopWidth: 1, gap: 8 },
   addMoreText: { fontSize: 14, fontFamily: "Inter_700Bold" },
+  gpsBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
+  gpsBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   fieldLabel: { fontSize: 14, fontFamily: "Inter_600SemiBold", textAlign: "right", marginBottom: -6 },
   inputWrap: { flexDirection: "row", alignItems: "center", borderRadius: 14, borderWidth: 1.5, paddingHorizontal: 14, paddingVertical: 12, gap: 10 },
   fieldInput: { flex: 1, fontSize: 15, fontFamily: "Inter_400Regular" },

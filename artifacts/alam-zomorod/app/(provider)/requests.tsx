@@ -32,6 +32,7 @@ export default function ProviderRequestsScreen() {
   const [offerEta, setOfferEta] = useState("20");
   const [offerNote, setOfferNote] = useState("");
   const [offerError, setOfferError] = useState("");
+  const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
   const webTopPad = Platform.OS === "web" ? 67 : 0;
   const webBottomPad = Platform.OS === "web" ? 34 : 0;
 
@@ -120,6 +121,7 @@ export default function ProviderRequestsScreen() {
     setOfferPrice("");
     setOfferEta("20");
     setOfferNote("");
+    setSelectedPackageId(null);
     setOfferError("");
     setFilterTab("my_offers");
   }
@@ -290,6 +292,36 @@ export default function ProviderRequestsScreen() {
                   معلوماتك ستظهر للعميل فقط عند قبول العرض
                 </Text>
               </View>
+
+              {provider?.packages && provider.packages.length > 0 && (
+                <>
+                  <Text style={[styles.fieldLabel, { color: colors.foreground }]}>إرفاق باقة (اختياري)</Text>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+                    <TouchableOpacity
+                      style={[styles.etaChip, { backgroundColor: !selectedPackageId ? colors.primary : colors.muted, borderColor: !selectedPackageId ? colors.primary : colors.border }]}
+                      onPress={() => { setSelectedPackageId(null); }}
+                    >
+                      <Text style={[styles.etaChipText, { color: !selectedPackageId ? "#fff" : colors.mutedForeground }]}>بدون باقة</Text>
+                    </TouchableOpacity>
+                    {provider.packages.map((pkg: any) => {
+                      const active = selectedPackageId === pkg.id;
+                      return (
+                        <TouchableOpacity
+                          key={pkg.id}
+                          style={[styles.etaChip, { backgroundColor: active ? colors.accent : colors.muted, borderColor: active ? colors.accent : colors.border, flexDirection: "column", alignItems: "flex-end", paddingVertical: 8, minWidth: 90 }]}
+                          onPress={() => {
+                            setSelectedPackageId(active ? null : pkg.id);
+                            setOfferPrice(String(pkg.price));
+                          }}
+                        >
+                          <Text style={[styles.etaChipText, { color: active ? "#fff" : colors.foreground, fontFamily: "Inter_700Bold" }]} numberOfLines={1}>{pkg.name}</Text>
+                          <Text style={{ color: active ? "#ffffffcc" : colors.mutedForeground, fontSize: 10, fontFamily: "Inter_400Regular" }}>{pkg.price} د.أ · {pkg.sessions} جلسات</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
 
               <Text style={[styles.fieldLabel, { color: colors.foreground }]}>سعر العرض (د.أ)</Text>
               <View style={[styles.priceInput, { borderColor: offerError ? colors.destructive : colors.border, backgroundColor: colors.muted }]}>

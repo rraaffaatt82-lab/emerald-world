@@ -19,15 +19,20 @@ import { STRINGS } from "@/constants/strings";
 import { Badge } from "@/components/ui/Badge";
 import { useData } from "@/context/DataContext";
 
-type ActiveModal = "none" | "edit" | "favorites" | "help" | "about" | "logout_confirm";
+type ActiveModal = "none" | "edit" | "phone" | "favorites" | "help" | "about" | "logout_confirm";
 
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const { favorites, removeFromFavorites, providers } = useData();
   const [activeModal, setActiveModal] = useState<ActiveModal>("none");
   const [editName, setEditName] = useState(user?.name || "");
+  const [newPhone, setNewPhone] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpValue, setOtpValue] = useState("");
+  const [otpError, setOtpError] = useState("");
+  const [phoneSaved, setPhoneSaved] = useState(false);
   const webTopPad = Platform.OS === "web" ? 67 : 0;
   const webBottomPad = Platform.OS === "web" ? 34 : 0;
 
@@ -42,6 +47,7 @@ export default function ProfileScreen() {
 
   const menuItems = [
     { icon: "edit-2", label: STRINGS.profile.editProfile, onPress: () => { setEditName(user?.name || ""); setActiveModal("edit"); } },
+    { icon: "phone", label: "تعديل رقم الهاتف", onPress: () => { setNewPhone(""); setOtpSent(false); setOtpValue(""); setOtpError(""); setPhoneSaved(false); setActiveModal("phone"); } },
     { icon: "heart", label: STRINGS.profile.favorites, onPress: () => setActiveModal("favorites") },
     {
       icon: "bell",
@@ -180,6 +186,97 @@ export default function ProfileScreen() {
             >
               <Text style={styles.saveBtnText}>حفظ التغييرات</Text>
             </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Phone Edit OTP Modal */}
+      <Modal visible={activeModal === "phone"} transparent animationType="slide" onRequestClose={() => setActiveModal("none")}>
+        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setActiveModal("none")}>
+          <TouchableOpacity activeOpacity={1} style={[styles.sheet, { backgroundColor: colors.card }]} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetHeader}>
+              <TouchableOpacity onPress={() => setActiveModal("none")}>
+                <Feather name="x" size={22} color={colors.foreground} />
+              </TouchableOpacity>
+              <Text style={[styles.sheetTitle, { color: colors.foreground }]}>تعديل رقم الهاتف</Text>
+            </View>
+            {phoneSaved ? (
+              <View style={{ alignItems: "center", paddingVertical: 20, gap: 12 }}>
+                <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: "#4caf50" + "20", alignItems: "center", justifyContent: "center" }}>
+                  <Feather name="check-circle" size={32} color="#4caf50" />
+                </View>
+                <Text style={{ color: "#4caf50", fontSize: 16, fontFamily: "Inter_700Bold" }}>تم تغيير رقم الهاتف بنجاح</Text>
+                <Text style={{ color: colors.mutedForeground, fontSize: 13, fontFamily: "Inter_400Regular" }}>رقمك الجديد: {newPhone}</Text>
+                <TouchableOpacity style={[styles.saveBtn, { backgroundColor: colors.primary }]} onPress={() => setActiveModal("none")}>
+                  <Text style={styles.saveBtnText}>إغلاق</Text>
+                </TouchableOpacity>
+              </View>
+            ) : !otpSent ? (
+              <>
+                <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>رقم الهاتف الجديد</Text>
+                <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.muted }]}>
+                  <Feather name="phone" size={16} color={colors.mutedForeground} />
+                  <TextInput
+                    style={[styles.input, { color: colors.foreground }]}
+                    value={newPhone}
+                    onChangeText={setNewPhone}
+                    placeholder="05XXXXXXXX"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="phone-pad"
+                    textAlign="right"
+                  />
+                </View>
+                {otpError !== "" && <Text style={{ color: colors.destructive, fontSize: 12, textAlign: "right", fontFamily: "Inter_400Regular", marginBottom: 4 }}>{otpError}</Text>}
+                <TouchableOpacity
+                  style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: newPhone.length >= 5 ? 1 : 0.4 }]}
+                  disabled={newPhone.length < 5}
+                  onPress={() => { setOtpSent(true); setOtpError(""); }}
+                >
+                  <Text style={styles.saveBtnText}>إرسال رمز التحقق</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <View style={{ backgroundColor: colors.primary + "15", borderRadius: 12, padding: 12, marginBottom: 8 }}>
+                  <Text style={{ color: colors.primary, fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "center" }}>
+                    تم إرسال رمز التحقق إلى {newPhone}
+                  </Text>
+                  <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular", textAlign: "center", marginTop: 4 }}>
+                    (للتجربة: الرمز هو 1234)
+                  </Text>
+                </View>
+                <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>رمز التحقق</Text>
+                <View style={[styles.inputWrap, { borderColor: otpError ? colors.destructive : colors.border, backgroundColor: colors.muted }]}>
+                  <Feather name="lock" size={16} color={colors.mutedForeground} />
+                  <TextInput
+                    style={[styles.input, { color: colors.foreground, textAlign: "center", letterSpacing: 6, fontSize: 20, fontFamily: "Inter_700Bold" }]}
+                    value={otpValue}
+                    onChangeText={(t) => { setOtpValue(t); setOtpError(""); }}
+                    placeholder="· · · ·"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="number-pad"
+                    maxLength={4}
+                    textAlign="center"
+                  />
+                </View>
+                {otpError !== "" && <Text style={{ color: colors.destructive, fontSize: 12, textAlign: "right", fontFamily: "Inter_400Regular", marginBottom: 4 }}>{otpError}</Text>}
+                <TouchableOpacity
+                  style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: otpValue.length === 4 ? 1 : 0.4 }]}
+                  disabled={otpValue.length !== 4}
+                  onPress={() => {
+                    if (otpValue !== "1234") { setOtpError("رمز التحقق غير صحيح، حاولي مجدداً"); return; }
+                    if (updateUser) updateUser({ phone: newPhone });
+                    setPhoneSaved(true);
+                  }}
+                >
+                  <Text style={styles.saveBtnText}>تأكيد وتغيير الرقم</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={{ marginTop: 8, alignSelf: "center" }} onPress={() => setOtpSent(false)}>
+                  <Text style={{ color: colors.primary, fontSize: 13, fontFamily: "Inter_600SemiBold" }}>تغيير الرقم</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
