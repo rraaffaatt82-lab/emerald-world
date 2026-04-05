@@ -21,18 +21,14 @@ export interface User {
   totalOrders?: number;
   walletBalance?: number;
   isVerified?: boolean;
-  location?: {
-    lat: number;
-    lng: number;
-    address: string;
-  };
+  location?: { lat: number; lng: number; address: string };
 }
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (phone: string, password: string) => Promise<void>;
+  login: (phone: string, password: string) => Promise<{ success: boolean; role?: UserRole; error?: string }>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => void;
@@ -47,7 +43,6 @@ interface RegisterData {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
 const STORAGE_KEY = "alam_zomorod_user";
 
 const MOCK_USERS: User[] = [
@@ -56,7 +51,6 @@ const MOCK_USERS: User[] = [
     name: "سارة أحمد",
     phone: "0501234567",
     role: "customer",
-    avatar: undefined,
     rating: 4.8,
     totalOrders: 23,
     walletBalance: 0,
@@ -65,35 +59,93 @@ const MOCK_USERS: User[] = [
   },
   {
     id: "2",
+    name: "فاطمة محمد",
+    phone: "0507654321",
+    role: "customer",
+    rating: 4.5,
+    totalOrders: 10,
+    walletBalance: 50,
+    isVerified: true,
+    location: { lat: 24.714, lng: 46.672, address: "الرياض، حي الملز" },
+  },
+  {
+    id: "p1",
     name: "نور الجمال",
-    phone: "0509876543",
+    phone: "0501234001",
     role: "provider",
     providerType: "freelancer",
-    avatar: undefined,
     rating: 4.9,
-    totalOrders: 87,
+    totalOrders: 234,
     walletBalance: 1250,
     isVerified: true,
     location: { lat: 24.72, lng: 46.68, address: "الرياض، حي الملك فهد" },
   },
+  {
+    id: "p2",
+    name: "صالون لمسة",
+    phone: "0501234002",
+    role: "provider",
+    providerType: "salon",
+    rating: 4.7,
+    totalOrders: 456,
+    walletBalance: 3200,
+    isVerified: true,
+    location: { lat: 24.71, lng: 46.67, address: "الرياض، حي العليا" },
+  },
+  {
+    id: "p3",
+    name: "هناء الجمالية",
+    phone: "0501234003",
+    role: "provider",
+    providerType: "freelancer",
+    rating: 4.6,
+    totalOrders: 123,
+    walletBalance: 890,
+    isVerified: true,
+    location: { lat: 24.73, lng: 46.69, address: "الرياض، حي الروضة" },
+  },
+  {
+    id: "p5",
+    name: "ريم بيوتي",
+    phone: "0501234005",
+    role: "provider",
+    providerType: "freelancer",
+    rating: 0,
+    totalOrders: 0,
+    walletBalance: 0,
+    isVerified: false,
+    location: { lat: 24.718, lng: 46.671, address: "الرياض، حي الياسمين" },
+  },
+  {
+    id: "admin1",
+    name: "مدير النظام",
+    phone: "0500000000",
+    role: "admin",
+    isVerified: true,
+  },
 ];
+
+const MOCK_PASSWORDS: Record<string, string> = {
+  "0501234567": "1234",
+  "0507654321": "1234",
+  "0501234001": "1234",
+  "0501234002": "1234",
+  "0501234003": "1234",
+  "0501234005": "1234",
+  "0500000000": "admin123",
+};
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    loadUser();
-  }, []);
+  useEffect(() => { loadUser(); }, []);
 
   async function loadUser() {
     try {
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        setUser(JSON.parse(stored));
-      }
-    } catch {
-    } finally {
+      if (stored) setUser(JSON.parse(stored));
+    } catch {} finally {
       setIsLoading(false);
     }
   }
@@ -101,10 +153,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (phone: string, password: string) => {
     setIsLoading(true);
     try {
-      await new Promise((r) => setTimeout(r, 1000));
-      const found = MOCK_USERS.find((u) => u.phone === phone) || MOCK_USERS[0];
+      await new Promise((r) => setTimeout(r, 800));
+      const found = MOCK_USERS.find((u) => u.phone === phone);
+      if (!found) {
+        return { success: false, error: "رقم الهاتف غير مسجل" };
+      }
+      const expectedPass = MOCK_PASSWORDS[phone];
+      if (expectedPass && password !== expectedPass) {
+        return { success: false, error: "كلمة المرور غير صحيحة" };
+      }
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(found));
       setUser(found);
+      return { success: true, role: found.role };
     } finally {
       setIsLoading(false);
     }
@@ -113,9 +173,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = useCallback(async (data: RegisterData) => {
     setIsLoading(true);
     try {
-      await new Promise((r) => setTimeout(r, 1500));
+      await new Promise((r) => setTimeout(r, 1200));
       const newUser: User = {
-        id: Date.now().toString(),
+        id: data.role === "provider" ? "p" + Date.now() : String(Date.now()),
         name: data.name,
         phone: data.phone,
         role: data.role,
@@ -147,17 +207,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isLoading,
-        isAuthenticated: !!user,
-        login,
-        register,
-        logout,
-        updateUser,
-      }}
-    >
+    <AuthContext.Provider value={{ user, isLoading, isAuthenticated: !!user, login, register, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

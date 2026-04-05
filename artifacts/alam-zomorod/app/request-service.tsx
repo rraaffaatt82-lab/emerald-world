@@ -28,7 +28,7 @@ export default function RequestServiceScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ serviceId?: string }>();
   const { user } = useAuth();
-  const { addOrder, orders, acceptOffer } = useData();
+  const { addRequest, requests, acceptOffer } = useData();
   const [step, setStep] = useState<Step>(params.serviceId ? "details" : "select-service");
   const [selectedService, setSelectedService] = useState(
     params.serviceId || ""
@@ -46,7 +46,7 @@ export default function RequestServiceScreen() {
     }
   }, [params.serviceId]);
 
-  const currentOrder = orderId ? orders.find((o) => o.id === orderId) : null;
+  const currentOrder = orderId ? requests.find((o) => o.id === orderId) : null;
 
   function handleSubmit() {
     if (!selectedService || !address) {
@@ -56,9 +56,10 @@ export default function RequestServiceScreen() {
     const service = SERVICES.find((s) => s.id === selectedService)!;
     const category = CATEGORIES.find((c) => c.id === service.categoryId)!;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const newId = "o" + Date.now();
-    addOrder({
+    const newReq = addRequest({
       customerId: user?.id || "1",
+      customerName: user?.name || "عميل",
+      customerPhone: user?.phone,
       serviceId: service.id,
       serviceName: service.name,
       categoryName: category.name,
@@ -67,8 +68,9 @@ export default function RequestServiceScreen() {
       scheduledAt: new Date().toISOString(),
       notes,
       price: service.basePrice,
+      radiusKm: 10,
     });
-    setOrderId(newId);
+    setOrderId(newReq.id);
     setStep("waiting");
   }
 

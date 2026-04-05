@@ -33,8 +33,8 @@ export default function OrderDetailScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { orders, updateOrder } = useData();
-  const order = orders.find((o) => o.id === id);
+  const { requests, updateRequest } = useData();
+  const order = requests.find((o) => o.id === id);
 
   if (!order) {
     return (
@@ -218,7 +218,7 @@ export default function OrderDetailScreen() {
       {["pending", "offers_received"].includes(order.status) && (
         <TouchableOpacity
           style={[styles.cancelBtn, { borderColor: colors.destructive }]}
-          onPress={() => updateOrder(order.id, { status: "cancelled" })}
+          onPress={() => updateRequest(order.id, { status: "cancelled" })}
         >
           <Text style={[styles.cancelBtnText, { color: colors.destructive }]}>
             {STRINGS.request.cancel}

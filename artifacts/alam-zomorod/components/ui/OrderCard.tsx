@@ -2,7 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useColors } from "@/hooks/useColors";
-import { Order } from "@/context/DataContext";
+import { ServiceRequest as Order } from "@/context/DataContext";
 import { STRINGS } from "@/constants/strings";
 import { Badge } from "./Badge";
 

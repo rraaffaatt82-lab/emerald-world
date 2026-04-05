@@ -25,7 +25,7 @@ export default function OrdersScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { getOrdersByUser, updateOrder } = useData();
+  const { getRequestsByCustomer, updateRequest } = useData();
   const [activeTab, setActiveTab] = useState<Tab>("active");
   const [ratingOrderId, setRatingOrderId] = useState<string | null>(null);
   const [rating, setRating] = useState(0);
@@ -33,7 +33,7 @@ export default function OrdersScreen() {
   const webTopPad = Platform.OS === "web" ? 67 : 0;
   const webBottomPad = Platform.OS === "web" ? 34 : 0;
 
-  const allOrders = user ? getOrdersByUser(user.id) : [];
+  const allOrders = user ? getRequestsByCustomer(user.id) : [];
 
   const filteredOrders = allOrders.filter((o) => {
     if (activeTab === "active")
@@ -44,7 +44,7 @@ export default function OrdersScreen() {
 
   function handleSubmitRating() {
     if (ratingOrderId && rating > 0) {
-      updateOrder(ratingOrderId, { rating, review });
+      updateRequest(ratingOrderId, { rating, review });
       setRatingOrderId(null);
       setRating(0);
       setReview("");
