@@ -9,9 +9,10 @@ import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/context/AuthContext";
+import { useData } from "@/context/DataContext";
 import { STRINGS } from "@/constants/strings";
 
-function NativeTabLayout() {
+function NativeTabLayout({ unread }: { unread: number }) {
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="index">
@@ -26,6 +27,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "list.clipboard", selected: "list.clipboard.fill" }} />
         <Label>{STRINGS.tabs.orders}</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="notifications">
+        <Icon sf={{ default: "bell", selected: "bell.fill" }} />
+        <Label>الإشعارات</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="profile">
         <Icon sf={{ default: "person", selected: "person.fill" }} />
         <Label>{STRINGS.tabs.profile}</Label>
@@ -34,7 +39,7 @@ function NativeTabLayout() {
   );
 }
 
-function ClassicTabLayout() {
+function ClassicTabLayout({ unread }: { unread: number }) {
   const colors = useColors();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
@@ -55,21 +60,12 @@ function ClassicTabLayout() {
           elevation: 0,
           ...(isWeb ? { height: 84 } : {}),
         },
-        tabBarLabelStyle: {
-          fontFamily: "Inter_600SemiBold",
-          fontSize: 11,
-        },
+        tabBarLabelStyle: { fontFamily: "Inter_600SemiBold", fontSize: 10 },
         tabBarBackground: () =>
           isIOS ? (
-            <BlurView
-              intensity={100}
-              tint={isDark ? "dark" : "light"}
-              style={StyleSheet.absoluteFill}
-            />
+            <BlurView intensity={100} tint={isDark ? "dark" : "light"} style={StyleSheet.absoluteFill} />
           ) : isWeb ? (
-            <View
-              style={[StyleSheet.absoluteFill, { backgroundColor: colors.background }]}
-            />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.background }]} />
           ) : null,
       }}
     >
@@ -77,48 +73,36 @@ function ClassicTabLayout() {
         name="index"
         options={{
           title: STRINGS.tabs.home,
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="house" tintColor={color} size={24} />
-            ) : (
-              <Feather name="home" size={22} color={color} />
-            ),
+          tabBarIcon: ({ color }) => isIOS ? <SymbolView name="house" tintColor={color} size={24} /> : <Feather name="home" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="categories"
         options={{
           title: STRINGS.tabs.categories,
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="square.grid.2x2" tintColor={color} size={24} />
-            ) : (
-              <Feather name="grid" size={22} color={color} />
-            ),
+          tabBarIcon: ({ color }) => isIOS ? <SymbolView name="square.grid.2x2" tintColor={color} size={24} /> : <Feather name="grid" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="orders"
         options={{
           title: STRINGS.tabs.orders,
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="list.clipboard" tintColor={color} size={24} />
-            ) : (
-              <Feather name="clipboard" size={22} color={color} />
-            ),
+          tabBarIcon: ({ color }) => isIOS ? <SymbolView name="list.clipboard" tintColor={color} size={24} /> : <Feather name="clipboard" size={22} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="notifications"
+        options={{
+          title: "الإشعارات",
+          tabBarBadge: unread > 0 ? unread : undefined,
+          tabBarIcon: ({ color }) => isIOS ? <SymbolView name="bell" tintColor={color} size={24} /> : <Feather name="bell" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: STRINGS.tabs.profile,
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="person" tintColor={color} size={24} />
-            ) : (
-              <Feather name="user" size={22} color={color} />
-            ),
+          tabBarIcon: ({ color }) => isIOS ? <SymbolView name="person" tintColor={color} size={24} /> : <Feather name="user" size={22} color={color} />,
         }}
       />
     </Tabs>
@@ -126,7 +110,9 @@ function ClassicTabLayout() {
 }
 
 export default function TabLayout() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
+  const { notifications } = useData();
+  const unread = notifications.filter((n) => n.userId === user?.id && !n.isRead).length;
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -135,9 +121,9 @@ export default function TabLayout() {
   }, [isAuthenticated, isLoading]);
 
   if (isLiquidGlassAvailable()) {
-    return <NativeTabLayout />;
+    return <NativeTabLayout unread={unread} />;
   }
-  return <ClassicTabLayout />;
+  return <ClassicTabLayout unread={unread} />;
 }
 
 const styles = StyleSheet.create({});

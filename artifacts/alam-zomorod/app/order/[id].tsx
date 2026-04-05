@@ -197,7 +197,10 @@ export default function OrderDetailScreen() {
                           </View>
                         )}
                         <Text style={[styles.offerProviderName, { color: colors.foreground }]}>
-                          {offer.providerName}
+                          {offer.providerFirstName || offer.providerName.split(" ")[0]}
+                        </Text>
+                        <Text style={[{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular" }]}>
+                          (الاسم الأول فقط)
                         </Text>
                       </View>
                       <View style={styles.providerMeta}>

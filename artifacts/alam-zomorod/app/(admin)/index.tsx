@@ -11,7 +11,7 @@ export default function AdminDashboard() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { providers, requests, walletTransactions } = useData();
+  const { providers, requests, walletTransactions, notifications, walletTopupRequests, packages } = useData();
   const webTopPad = Platform.OS === "web" ? 67 : 0;
   const webBottomPad = Platform.OS === "web" ? 34 : 0;
 
