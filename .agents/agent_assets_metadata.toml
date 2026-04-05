@@ -1,0 +1,20 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "YAsQYAeP95sl3JXAmEoAF"
+uri = "file://artifacts/alam-zomorod/assets/images/icon.png"
+type = "image"
+title = "emerald beauty app icon"
+
+[[generated]]
+id = "fj8bet4eCaGoXha_at4RG"
+uri = "file://artifacts/alam-zomorod/assets/images/hero_banner.png"
+type = "image"
+title = "beauty services hero banner"
+
+[[generated]]
+id = "NNQ7GIKsjKmS3LhSXcOdi"
+uri = "file://artifacts/alam-zomorod/assets/images/salon_bg.png"
+type = "image"
+title = "salon background image"

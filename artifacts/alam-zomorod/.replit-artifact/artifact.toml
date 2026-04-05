@@ -1,0 +1,27 @@
+kind = "mobile"
+previewPath = "/"
+title = "عالم زمرد"
+version = "1.0.0"
+id = "artifacts/alam-zomorod"
+router = "expo-domain"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+ensurePreviewReachable = "/status"
+name = "expo"
+paths = [ "/" ]
+localPort = 22862
+
+[services.development]
+run = "pnpm --filter @workspace/alam-zomorod run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/alam-zomorod", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/alam-zomorod", "run", "serve" ]
+
+[services.env]
+PORT = "22862"
+BASE_PATH = "/"

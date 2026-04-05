@@ -16,6 +16,29 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
 
+## Artifacts
+
+### عالم زمرد - Mobile App (Expo)
+- **Path**: `artifacts/alam-zomorod/`
+- **Language**: Arabic (RTL)
+- **Tech**: React Native + Expo Router
+- **Features**:
+  - Authentication (Customer / Provider / Admin)
+  - Categories & Services management
+  - Service request with bidding system
+  - Order tracking (pending → offers → accepted → in_progress → completed)
+  - Provider profiles with ratings
+  - Wallet system with recharge
+  - Rating & review system
+  - Favorites system
+  - Provider types: Salon / Freelancer
+- **Local storage**: AsyncStorage (no backend for first build)
+- **Target stores**: iOS App Store (via Expo Launch), Google Play (manual EAS)
+
+### API Server
+- **Path**: `artifacts/api-server/`
+- **Framework**: Express 5 + Drizzle ORM + PostgreSQL
+
 ## Key Commands
 
 - `pnpm run typecheck` — full typecheck across all packages
