@@ -139,7 +139,12 @@ export default function OrdersScreen() {
         scrollEnabled={filteredOrders.length > 0}
       />
 
-      <Modal visible={!!ratingOrderId} transparent animationType="slide">
+      <Modal
+        visible={!!ratingOrderId}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setRatingOrderId(null)}
+      >
         <View style={styles.modalOverlay}>
           <View style={[styles.ratingModal, { backgroundColor: colors.card }]}>
             <Text style={[styles.ratingTitle, { color: colors.foreground }]}>

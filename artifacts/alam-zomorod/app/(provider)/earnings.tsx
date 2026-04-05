@@ -1,8 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
-  Alert,
-  FlatList,
   Modal,
   Platform,
   ScrollView,
@@ -16,14 +14,22 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/context/AuthContext";
 import { useData } from "@/context/DataContext";
+import { toHijriShort } from "@/utils/date";
 
 export default function ProviderEarningsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { providers, walletTransactions, getRequestsByProvider, addWalletTransaction, updateProvider } = useData();
-  const [rechargeModal, setRechargeModal] = useState(false);
-  const [amount, setAmount] = useState("");
+  const {
+    providers,
+    walletTransactions,
+    getRequestsByProvider,
+    requestWalletTopup,
+  } = useData();
+  const [topupModal, setTopupModal] = useState(false);
+  const [topupAmount, setTopupAmount] = useState("");
+  const [topupNote, setTopupNote] = useState("");
+  const [submitted, setSubmitted] = useState(false);
   const webTopPad = Platform.OS === "web" ? 67 : 0;
   const webBottomPad = Platform.OS === "web" ? 34 : 0;
 
@@ -34,19 +40,25 @@ export default function ProviderEarningsScreen() {
   const totalCommission = totalEarned * ((provider?.commission || 15) / 100);
   const myTxs = walletTransactions.filter((t) => t.userId === user?.id).slice(0, 20);
 
-  function handleRecharge() {
-    const amt = parseFloat(amount);
-    if (isNaN(amt) || amt < 50) {
-      Alert.alert("خطأ", "الحد الأدنى للشحن 50 ريال");
-      return;
-    }
-    addWalletTransaction({ userId: user?.id || "", type: "credit", amount: amt, description: "شحن رصيد المحفظة", date: new Date().toISOString().split("T")[0] });
-    if (provider) {
-      updateProvider(provider.id, { walletBalance: provider.walletBalance + amt });
-    }
-    setRechargeModal(false);
-    setAmount("");
-    Alert.alert("تم", `تم شحن ${amt} ريال بنجاح`);
+  function openTopup() {
+    setSubmitted(false);
+    setTopupAmount("");
+    setTopupNote("");
+    setTopupModal(true);
+  }
+
+  function handleTopupRequest() {
+    const amt = parseFloat(topupAmount);
+    if (isNaN(amt) || amt < 50) return;
+    requestWalletTopup(user!.id, user!.name, amt, topupNote || undefined);
+    setSubmitted(true);
+  }
+
+  function closeTopup() {
+    setTopupModal(false);
+    setSubmitted(false);
+    setTopupAmount("");
+    setTopupNote("");
   }
 
   const statCards = [
@@ -61,11 +73,11 @@ export default function ProviderEarningsScreen() {
       <View style={[styles.header, { paddingTop: insets.top + webTopPad + 10, borderBottomColor: colors.border }]}>
         <Text style={[styles.title, { color: colors.foreground }]}>الأرباح والمحفظة</Text>
         <TouchableOpacity
-          style={[styles.rechargeBtn, { backgroundColor: colors.primary }]}
-          onPress={() => setRechargeModal(true)}
+          style={[styles.topupBtn, { backgroundColor: colors.primary }]}
+          onPress={openTopup}
         >
           <Feather name="plus" size={16} color="#fff" />
-          <Text style={styles.rechargeBtnText}>شحن</Text>
+          <Text style={styles.topupBtnText}>طلب شحن</Text>
         </TouchableOpacity>
       </View>
 
@@ -74,19 +86,19 @@ export default function ProviderEarningsScreen() {
         showsVerticalScrollIndicator={false}
       >
         {provider?.freeServicesLeft && provider.freeServicesLeft > 0 ? (
-          <View style={[styles.freeBanner, { backgroundColor: colors.accent + "15", borderColor: colors.accent + "30" }]}>
+          <View style={[styles.banner, { backgroundColor: colors.accent + "15", borderColor: colors.accent + "30" }]}>
             <Feather name="gift" size={18} color={colors.accent} />
-            <Text style={[styles.freeBannerText, { color: colors.accent }]}>
+            <Text style={[styles.bannerText, { color: colors.accent }]}>
               لديك {provider.freeServicesLeft} خدمة مجانية بدون عمولة
             </Text>
           </View>
         ) : null}
 
         {provider && provider.walletBalance < 100 && provider.freeServicesLeft === 0 && (
-          <View style={[styles.lowBanner, { backgroundColor: colors.destructive + "15", borderColor: colors.destructive + "30" }]}>
+          <View style={[styles.banner, { backgroundColor: colors.destructive + "15", borderColor: colors.destructive + "30" }]}>
             <Feather name="alert-triangle" size={16} color={colors.destructive} />
-            <Text style={[styles.lowBannerText, { color: colors.destructive }]}>
-              رصيدك منخفض! اشحن قبل استقبال طلبات جديدة
+            <Text style={[styles.bannerText, { color: colors.destructive }]}>
+              رصيدك منخفض! اطلب شحن قبل استقبال طلبات جديدة
             </Text>
           </View>
         )}
@@ -110,7 +122,7 @@ export default function ProviderEarningsScreen() {
             <Text style={[styles.commissionLabel, { color: colors.mutedForeground }]}>نسبة العمولة</Text>
           </View>
           <Text style={[styles.commissionDesc, { color: colors.mutedForeground }]}>
-            تُخصم العمولة تلقائياً من رصيد المحفظة بعد إتمام كل خدمة. تأكد من وجود رصيد كافٍ.
+            تُخصم العمولة تلقائياً من رصيد المحفظة بعد إتمام كل خدمة. طلبات الشحن تحتاج موافقة الإدارة.
           </Text>
         </View>
 
@@ -118,6 +130,7 @@ export default function ProviderEarningsScreen() {
 
         {myTxs.length === 0 ? (
           <View style={styles.emptyTx}>
+            <Feather name="credit-card" size={32} color={colors.mutedForeground} />
             <Text style={[styles.emptyTxText, { color: colors.mutedForeground }]}>لا توجد معاملات</Text>
           </View>
         ) : (
@@ -134,7 +147,9 @@ export default function ProviderEarningsScreen() {
               </View>
               <View style={styles.txInfo}>
                 <Text style={[styles.txDesc, { color: colors.foreground }]}>{tx.description}</Text>
-                <Text style={[styles.txDate, { color: colors.mutedForeground }]}>{tx.date}</Text>
+                <Text style={[styles.txDate, { color: colors.mutedForeground }]}>
+                  {toHijriShort(tx.date)}
+                </Text>
               </View>
               <Text style={[styles.txAmount, {
                 color: tx.type === "credit" ? colors.success : colors.destructive,
@@ -146,48 +161,99 @@ export default function ProviderEarningsScreen() {
         )}
       </ScrollView>
 
-      <Modal visible={rechargeModal} transparent animationType="slide">
+      <Modal
+        visible={topupModal}
+        transparent
+        animationType="slide"
+        onRequestClose={closeTopup}
+      >
         <View style={styles.modalOverlay}>
-          <View style={[styles.rechargeModal, { backgroundColor: colors.card }]}>
-            <Text style={[styles.modalTitle, { color: colors.foreground }]}>شحن المحفظة</Text>
-            <View style={[styles.amountInput, { borderColor: colors.border, backgroundColor: colors.muted }]}>
-              <TextInput
-                style={[styles.amountText, { color: colors.foreground }]}
-                value={amount}
-                onChangeText={setAmount}
-                keyboardType="numeric"
-                placeholder="0"
-                placeholderTextColor={colors.mutedForeground}
-                textAlign="right"
-                autoFocus
-              />
-              <Text style={[styles.currencyLabel, { color: colors.mutedForeground }]}>ريال</Text>
+          <View style={[styles.topupModal, { backgroundColor: colors.card }]}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={closeTopup}>
+                <Feather name="x" size={22} color={colors.foreground} />
+              </TouchableOpacity>
+              <Text style={[styles.modalTitle, { color: colors.foreground }]}>طلب شحن المحفظة</Text>
             </View>
-            <View style={styles.quickAmounts}>
-              {[100, 200, 500, 1000].map((a) => (
+
+            {submitted ? (
+              <View style={styles.successArea}>
+                <View style={[styles.successIcon, { backgroundColor: colors.success + "20" }]}>
+                  <Feather name="check-circle" size={40} color={colors.success} />
+                </View>
+                <Text style={[styles.successTitle, { color: colors.foreground }]}>تم إرسال الطلب!</Text>
+                <Text style={[styles.successDesc, { color: colors.mutedForeground }]}>
+                  ستتلقين إشعاراً فور موافقة الإدارة على شحن رصيدك
+                </Text>
                 <TouchableOpacity
-                  key={a}
-                  style={[styles.quickAmt, { borderColor: colors.primary + "50" }]}
-                  onPress={() => setAmount(String(a))}
+                  style={[styles.doneBtn, { backgroundColor: colors.primary }]}
+                  onPress={closeTopup}
                 >
-                  <Text style={[styles.quickAmtText, { color: colors.primary }]}>{a}</Text>
+                  <Text style={styles.doneBtnText}>حسناً</Text>
                 </TouchableOpacity>
-              ))}
-            </View>
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.cancelBtn, { borderColor: colors.border }]}
-                onPress={() => setRechargeModal(false)}
-              >
-                <Text style={[styles.cancelText, { color: colors.mutedForeground }]}>إلغاء</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.confirmBtn, { backgroundColor: colors.primary }]}
-                onPress={handleRecharge}
-              >
-                <Text style={styles.confirmText}>شحن</Text>
-              </TouchableOpacity>
-            </View>
+              </View>
+            ) : (
+              <>
+                <Text style={[styles.modalDesc, { color: colors.mutedForeground }]}>
+                  سيتم مراجعة طلبك من قبل الإدارة وإشعارك فور الموافقة
+                </Text>
+
+                <Text style={[styles.fieldLabel, { color: colors.foreground }]}>المبلغ المطلوب (ر.س) *</Text>
+                <View style={[styles.amountInput, { borderColor: colors.border, backgroundColor: colors.muted }]}>
+                  <TextInput
+                    style={[styles.amountText, { color: colors.foreground }]}
+                    value={topupAmount}
+                    onChangeText={setTopupAmount}
+                    keyboardType="numeric"
+                    placeholder="مثال: 500"
+                    placeholderTextColor={colors.mutedForeground}
+                    textAlign="right"
+                  />
+                  <Text style={[styles.currencyLabel, { color: colors.mutedForeground }]}>ريال</Text>
+                </View>
+
+                <View style={styles.quickAmounts}>
+                  {[100, 200, 500, 1000].map((a) => (
+                    <TouchableOpacity
+                      key={a}
+                      style={[styles.quickAmt, { borderColor: colors.primary + "50" }]}
+                      onPress={() => setTopupAmount(String(a))}
+                    >
+                      <Text style={[styles.quickAmtText, { color: colors.primary }]}>{a}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={[styles.fieldLabel, { color: colors.foreground }]}>ملاحظة (اختياري)</Text>
+                <TextInput
+                  style={[styles.noteInput, { borderColor: colors.border, backgroundColor: colors.muted, color: colors.foreground }]}
+                  value={topupNote}
+                  onChangeText={setTopupNote}
+                  placeholder="تفاصيل إضافية للإدارة..."
+                  placeholderTextColor={colors.mutedForeground}
+                  multiline
+                  numberOfLines={2}
+                  textAlign="right"
+                />
+
+                <TouchableOpacity
+                  style={[
+                    styles.submitBtn,
+                    { backgroundColor: colors.primary },
+                    (isNaN(parseFloat(topupAmount)) || parseFloat(topupAmount) < 50) && { opacity: 0.5 },
+                  ]}
+                  onPress={handleTopupRequest}
+                  disabled={isNaN(parseFloat(topupAmount)) || parseFloat(topupAmount) < 50}
+                >
+                  <Feather name="send" size={18} color="#fff" />
+                  <Text style={styles.submitBtnText}>إرسال الطلب</Text>
+                </TouchableOpacity>
+
+                <Text style={[styles.minNote, { color: colors.mutedForeground }]}>
+                  الحد الأدنى للشحن: 50 ريال
+                </Text>
+              </>
+            )}
           </View>
         </View>
       </Modal>
@@ -197,15 +263,16 @@ export default function ProviderEarningsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingHorizontal: 20, paddingBottom: 14, borderBottomWidth: 1, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  header: {
+    paddingHorizontal: 20, paddingBottom: 14, borderBottomWidth: 1,
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+  },
   title: { fontSize: 22, fontFamily: "Inter_700Bold" },
-  rechargeBtn: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, gap: 6 },
-  rechargeBtnText: { color: "#fff", fontSize: 14, fontFamily: "Inter_700Bold" },
+  topupBtn: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, gap: 6 },
+  topupBtnText: { color: "#fff", fontSize: 14, fontFamily: "Inter_700Bold" },
   content: { padding: 16, gap: 16 },
-  freeBanner: { flexDirection: "row", alignItems: "center", padding: 14, borderRadius: 14, borderWidth: 1, gap: 10 },
-  freeBannerText: { fontSize: 14, fontFamily: "Inter_600SemiBold", flex: 1, textAlign: "right" },
-  lowBanner: { flexDirection: "row", alignItems: "center", padding: 14, borderRadius: 14, borderWidth: 1, gap: 10 },
-  lowBannerText: { fontSize: 14, fontFamily: "Inter_600SemiBold", flex: 1, textAlign: "right" },
+  banner: { flexDirection: "row", alignItems: "center", padding: 14, borderRadius: 14, borderWidth: 1, gap: 10 },
+  bannerText: { fontSize: 14, fontFamily: "Inter_600SemiBold", flex: 1, textAlign: "right" },
   statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   statCard: { width: "47%", borderRadius: 16, padding: 16, borderWidth: 1, gap: 8 },
   statIcon: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center", alignSelf: "flex-end" },
@@ -218,7 +285,7 @@ const styles = StyleSheet.create({
   commissionLabel: { fontSize: 14, fontFamily: "Inter_400Regular" },
   commissionDesc: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "right", lineHeight: 20 },
   historyTitle: { fontSize: 16, fontFamily: "Inter_700Bold", textAlign: "right" },
-  emptyTx: { padding: 20, alignItems: "center" },
+  emptyTx: { padding: 30, alignItems: "center", gap: 10 },
   emptyTxText: { fontSize: 14, fontFamily: "Inter_400Regular" },
   txRow: { flexDirection: "row", alignItems: "center", padding: 14, borderRadius: 14, borderWidth: 1, gap: 12 },
   txIcon: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
@@ -227,17 +294,25 @@ const styles = StyleSheet.create({
   txDate: { fontSize: 12, fontFamily: "Inter_400Regular" },
   txAmount: { fontSize: 16, fontFamily: "Inter_700Bold" },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
-  rechargeModal: { padding: 28, borderTopLeftRadius: 28, borderTopRightRadius: 28, gap: 16 },
-  modalTitle: { fontSize: 20, fontFamily: "Inter_700Bold", textAlign: "right" },
+  topupModal: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, gap: 14 },
+  modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  modalTitle: { fontSize: 20, fontFamily: "Inter_700Bold" },
+  modalDesc: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "right", lineHeight: 20 },
+  fieldLabel: { fontSize: 14, fontFamily: "Inter_600SemiBold", textAlign: "right" },
   amountInput: { flexDirection: "row", alignItems: "center", borderRadius: 14, borderWidth: 1, paddingHorizontal: 16, paddingVertical: 14 },
   amountText: { flex: 1, fontSize: 28, fontFamily: "Inter_700Bold" },
   currencyLabel: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
   quickAmounts: { flexDirection: "row", gap: 10 },
   quickAmt: { flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 1.5, alignItems: "center" },
   quickAmtText: { fontSize: 15, fontFamily: "Inter_700Bold" },
-  modalActions: { flexDirection: "row", gap: 12 },
-  cancelBtn: { flex: 1, paddingVertical: 14, borderRadius: 14, borderWidth: 1, alignItems: "center" },
-  cancelText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
-  confirmBtn: { flex: 2, paddingVertical: 14, borderRadius: 14, alignItems: "center" },
-  confirmText: { color: "#fff", fontSize: 15, fontFamily: "Inter_700Bold" },
+  noteInput: { borderRadius: 12, borderWidth: 1, padding: 12, fontSize: 14, fontFamily: "Inter_400Regular", minHeight: 60 },
+  submitBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 16, borderRadius: 14, gap: 10 },
+  submitBtnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_700Bold" },
+  minNote: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center" },
+  successArea: { alignItems: "center", gap: 14, paddingVertical: 20 },
+  successIcon: { width: 80, height: 80, borderRadius: 40, alignItems: "center", justifyContent: "center" },
+  successTitle: { fontSize: 20, fontFamily: "Inter_700Bold" },
+  successDesc: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 22, paddingHorizontal: 20 },
+  doneBtn: { paddingHorizontal: 40, paddingVertical: 14, borderRadius: 14 },
+  doneBtnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_700Bold" },
 });

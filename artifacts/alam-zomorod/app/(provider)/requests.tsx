@@ -7,7 +7,6 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -18,14 +17,17 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/context/AuthContext";
 import { useData, SERVICES, CATEGORIES } from "@/context/DataContext";
-import { StarRating } from "@/components/ui/StarRating";
 import { Badge } from "@/components/ui/Badge";
+import { toHijriShort } from "@/utils/date";
+
+type FilterTab = "available" | "my_offers" | "accepted";
 
 export default function ProviderRequestsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { getPendingOfferRequests, submitOffer, providers, getProviderOffers } = useData();
+  const { getPendingOfferRequests, submitOffer, providers, getProviderOffers, requests } = useData();
+  const [filterTab, setFilterTab] = useState<FilterTab>("available");
   const [offerModal, setOfferModal] = useState<{ requestId: string; serviceName: string } | null>(null);
   const [offerPrice, setOfferPrice] = useState("");
   const [offerEta, setOfferEta] = useState("20");
@@ -36,6 +38,19 @@ export default function ProviderRequestsScreen() {
   const provider = providers.find((p) => p.id === user?.id);
   const pendingRequests = getPendingOfferRequests(user?.id || "");
   const myOffers = getProviderOffers(user?.id || "");
+
+  const myOfferRequests = requests.filter((r) =>
+    r.offers.some((o) => o.providerId === user?.id && o.status === "pending")
+  );
+  const acceptedRequests = requests.filter((r) =>
+    r.offers.some((o) => o.providerId === user?.id && o.status === "accepted")
+  );
+
+  const filterTabs: { key: FilterTab; label: string; count: number }[] = [
+    { key: "available", label: "متاحة", count: pendingRequests.length },
+    { key: "my_offers", label: "عروضي", count: myOfferRequests.length },
+    { key: "accepted", label: "مقبولة", count: acceptedRequests.length },
+  ];
 
   if (provider?.status === "pending") {
     return (
@@ -105,8 +120,15 @@ export default function ProviderRequestsScreen() {
     setOfferPrice("");
     setOfferEta("20");
     setOfferNote("");
-    Alert.alert("تم!", "تم إرسال عرضك بنجاح. ستُعلَم عند قبول العميل.");
+    setFilterTab("my_offers");
   }
+
+  const currentData =
+    filterTab === "available"
+      ? pendingRequests
+      : filterTab === "my_offers"
+      ? myOfferRequests
+      : acceptedRequests;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -120,33 +142,37 @@ export default function ProviderRequestsScreen() {
         </View>
       </View>
 
-      <View style={[styles.statsRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-        <View style={styles.stat}>
-          <Text style={[styles.statNum, { color: colors.accent }]}>{pendingRequests.length}</Text>
-          <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>طلب متاح</Text>
-        </View>
-        <View style={[styles.statDiv, { backgroundColor: colors.border }]} />
-        <View style={styles.stat}>
-          <Text style={[styles.statNum, { color: colors.primary }]}>{myOffers.filter((o) => o.status === "pending").length}</Text>
-          <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>عرض مُرسَل</Text>
-        </View>
-        <View style={[styles.statDiv, { backgroundColor: colors.border }]} />
-        <View style={styles.stat}>
-          <Text style={[styles.statNum, { color: colors.success }]}>{myOffers.filter((o) => o.status === "accepted").length}</Text>
-          <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>عرض مقبول</Text>
-        </View>
+      <View style={[styles.tabBar, { backgroundColor: colors.muted }]}>
+        {filterTabs.map((t) => (
+          <TouchableOpacity
+            key={t.key}
+            style={[styles.tabItem, filterTab === t.key && { backgroundColor: colors.card }]}
+            onPress={() => setFilterTab(t.key)}
+          >
+            <Text style={[
+              styles.tabText,
+              { color: filterTab === t.key ? colors.primary : colors.mutedForeground,
+                fontFamily: filterTab === t.key ? "Inter_700Bold" : "Inter_400Regular" },
+            ]}>
+              {t.label}
+              {t.count > 0 ? ` (${t.count})` : ""}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       <FlatList
-        data={pendingRequests}
+        data={currentData}
         keyExtractor={(i) => i.id}
         contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + webBottomPad + 90 }]}
         ListEmptyComponent={() => (
           <View style={styles.empty}>
             <Feather name="inbox" size={48} color={colors.mutedForeground} />
-            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>لا توجد طلبات حالياً</Text>
+            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+              {filterTab === "available" ? "لا توجد طلبات حالياً" : filterTab === "my_offers" ? "لم ترسلي عروضاً بعد" : "لا توجد عروض مقبولة"}
+            </Text>
             <Text style={[styles.emptyDesc, { color: colors.mutedForeground }]}>
-              ستظهر الطلبات الجديدة هنا فور إرسالها من عملاء قريبين
+              {filterTab === "available" ? "ستظهر الطلبات الجديدة هنا فور إرسالها من عملاء قريبين" : filterTab === "my_offers" ? "قدّمي عروضك على الطلبات المتاحة" : "ستظهر هنا الطلبات التي قبلت العميلة عرضك فيها"}
             </Text>
           </View>
         )}
@@ -154,8 +180,14 @@ export default function ProviderRequestsScreen() {
           const service = SERVICES.find((s) => s.id === item.serviceId);
           const cat = CATEGORIES.find((c) => c.id === service?.categoryId);
           const alreadyOffered = item.offers.some((o) => o.providerId === user?.id);
+          const myOffer = item.offers.find((o) => o.providerId === user?.id);
+          const isAcceptedOffer = myOffer?.status === "accepted";
+
           return (
-            <View style={[styles.requestCard, { backgroundColor: colors.card, borderColor: alreadyOffered ? colors.primary + "40" : colors.border }]}>
+            <View style={[styles.requestCard, {
+              backgroundColor: colors.card,
+              borderColor: isAcceptedOffer ? colors.success + "50" : alreadyOffered ? colors.primary + "40" : colors.border,
+            }]}>
               <View style={styles.cardTop}>
                 <View style={[styles.catIcon, { backgroundColor: (cat?.color || colors.primary) + "20" }]}>
                   <Feather name={(cat?.icon || "scissors") as any} size={20} color={cat?.color || colors.primary} />
@@ -168,9 +200,9 @@ export default function ProviderRequestsScreen() {
                     <Text style={[styles.cardMetaText, { color: colors.mutedForeground }]}> {item.address}</Text>
                   </View>
                   <View style={styles.cardMeta}>
-                    <Feather name="clock" size={12} color={colors.mutedForeground} />
+                    <Feather name="calendar" size={12} color={colors.mutedForeground} />
                     <Text style={[styles.cardMetaText, { color: colors.mutedForeground }]}>
-                      {" "}{new Date(item.scheduledAt).toLocaleDateString("ar-SA")}
+                      {" "}{toHijriShort(item.scheduledAt)}
                     </Text>
                   </View>
                 </View>
@@ -191,18 +223,27 @@ export default function ProviderRequestsScreen() {
                 </View>
               ) : null}
 
-              <View style={styles.privacyNote}>
-                <Feather name="shield" size={14} color={colors.accent} />
-                <Text style={[styles.privacyText, { color: colors.mutedForeground }]}>
-                  معلومات العميل مخفية حتى قبول العرض
-                </Text>
-              </View>
+              {filterTab === "available" && (
+                <View style={styles.privacyNote}>
+                  <Feather name="shield" size={14} color={colors.accent} />
+                  <Text style={[styles.privacyText, { color: colors.mutedForeground }]}>
+                    معلومات العميل مخفية حتى قبول العرض
+                  </Text>
+                </View>
+              )}
 
-              {alreadyOffered ? (
+              {isAcceptedOffer ? (
+                <View style={[styles.acceptedBadge, { backgroundColor: colors.success + "15" }]}>
+                  <Feather name="check-circle" size={16} color={colors.success} />
+                  <Text style={[styles.acceptedBadgeText, { color: colors.success }]}>
+                    تم قبول عرضك! — {item.contactRevealed ? `تواصل: ${item.customerPhone || "—"}` : "—"}
+                  </Text>
+                </View>
+              ) : alreadyOffered ? (
                 <View style={[styles.alreadyOffered, { backgroundColor: colors.primary + "15" }]}>
-                  <Feather name="check-circle" size={16} color={colors.primary} />
+                  <Feather name="clock" size={16} color={colors.primary} />
                   <Text style={[styles.alreadyOfferedText, { color: colors.primary }]}>
-                    تم إرسال عرضك — بانتظار العميل
+                    عرضك: {myOffer?.price} ر.س — بانتظار العميل
                   </Text>
                 </View>
               ) : (
@@ -223,7 +264,12 @@ export default function ProviderRequestsScreen() {
         }}
       />
 
-      <Modal visible={!!offerModal} transparent animationType="slide">
+      <Modal
+        visible={!!offerModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setOfferModal(null)}
+      >
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
           <View style={styles.modalOverlay}>
             <View style={[styles.offerModal, { backgroundColor: colors.card }]}>
@@ -316,22 +362,17 @@ export default function ProviderRequestsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
-    paddingHorizontal: 20, paddingBottom: 14, borderBottomWidth: 1,
+    paddingHorizontal: 20, paddingBottom: 12, borderBottomWidth: 1,
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
   },
   title: { fontSize: 22, fontFamily: "Inter_700Bold" },
   statusPill: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, gap: 6 },
   dot: { width: 8, height: 8, borderRadius: 4 },
   statusText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
-  statsRow: {
-    flexDirection: "row", paddingVertical: 14, paddingHorizontal: 20,
-    borderBottomWidth: 1, justifyContent: "space-around",
-  },
-  stat: { alignItems: "center", gap: 4 },
-  statNum: { fontSize: 22, fontFamily: "Inter_700Bold" },
-  statLabel: { fontSize: 12, fontFamily: "Inter_400Regular" },
-  statDiv: { width: 1, height: "100%" },
-  list: { padding: 16, gap: 12 },
+  tabBar: { flexDirection: "row", margin: 12, borderRadius: 12, padding: 4 },
+  tabItem: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: "center" },
+  tabText: { fontSize: 12 },
+  list: { paddingHorizontal: 12, paddingTop: 4, gap: 12 },
   empty: { alignItems: "center", paddingVertical: 60, gap: 14 },
   emptyTitle: { fontSize: 17, fontFamily: "Inter_700Bold" },
   emptyDesc: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", paddingHorizontal: 40, lineHeight: 22 },
@@ -351,8 +392,10 @@ const styles = StyleSheet.create({
   notesText: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "right" },
   privacyNote: { flexDirection: "row", alignItems: "center", gap: 6, justifyContent: "flex-end" },
   privacyText: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  acceptedBadge: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 12, borderRadius: 10, gap: 8 },
+  acceptedBadgeText: { fontSize: 14, fontFamily: "Inter_600SemiBold", flex: 1, textAlign: "right" },
   alreadyOffered: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 12, borderRadius: 10, gap: 8 },
-  alreadyOfferedText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  alreadyOfferedText: { fontSize: 14, fontFamily: "Inter_600SemiBold", textAlign: "right" },
   offerBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 14, borderRadius: 12, gap: 8 },
   offerBtnText: { color: "#fff", fontSize: 15, fontFamily: "Inter_700Bold" },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },

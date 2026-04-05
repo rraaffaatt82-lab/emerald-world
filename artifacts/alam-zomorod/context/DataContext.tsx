@@ -180,6 +180,16 @@ export interface ServicePackage {
   createdAt: string;
 }
 
+export interface CustomProviderService {
+  id: string;
+  providerId: string;
+  name: string;
+  description: string;
+  price: number;
+  duration?: number;
+  createdAt: string;
+}
+
 export interface SystemSettings {
   radiusKm: number;
   offerWindowMinutes: number;
@@ -231,6 +241,9 @@ interface DataContextType {
   rejectPackage: (id: string) => void;
   blockCustomer: (providerId: string, customerId: string) => void;
   unblockCustomer: (providerId: string, customerId: string) => void;
+  customProviderServices: CustomProviderService[];
+  addCustomProviderService: (svc: Omit<CustomProviderService, "id" | "createdAt">) => void;
+  deleteCustomProviderService: (id: string) => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -472,6 +485,7 @@ const NOTIF_KEY = "azom_notifications";
 const COUPONS_KEY = "azom_coupons";
 const TOPUP_KEY = "azom_topup";
 const PACKAGES_KEY = "azom_packages";
+const CUSTOM_SVCS_KEY = "azom_custom_svcs";
 
 const DEFAULT_SETTINGS: SystemSettings = {
   radiusKm: 10,
@@ -496,6 +510,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [coupons, setCoupons] = useState<Coupon[]>(MOCK_COUPONS);
   const [walletTopupRequests, setWalletTopupRequests] = useState<WalletTopupRequest[]>(MOCK_TOPUP_REQUESTS);
   const [packages, setPackages] = useState<ServicePackage[]>(MOCK_PACKAGES);
+  const [customProviderServices, setCustomProviderServices] = useState<CustomProviderService[]>([]);
 
   useEffect(() => {
     loadData();
@@ -503,7 +518,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   async function loadData() {
     try {
-      const [favStr, reqStr, provStr, walStr, setStr, notifStr, cpnStr, topStr, pkgStr] = await Promise.all([
+      const [favStr, reqStr, provStr, walStr, setStr, notifStr, cpnStr, topStr, pkgStr, csvcStr] = await Promise.all([
         AsyncStorage.getItem(FAV_KEY),
         AsyncStorage.getItem(REQUESTS_KEY),
         AsyncStorage.getItem(PROVIDERS_KEY),
@@ -513,6 +528,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         AsyncStorage.getItem(COUPONS_KEY),
         AsyncStorage.getItem(TOPUP_KEY),
         AsyncStorage.getItem(PACKAGES_KEY),
+        AsyncStorage.getItem(CUSTOM_SVCS_KEY),
       ]);
       if (favStr) setFavorites(JSON.parse(favStr));
       if (reqStr) setRequests(JSON.parse(reqStr));
@@ -523,6 +539,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (cpnStr) setCoupons(JSON.parse(cpnStr));
       if (topStr) setWalletTopupRequests(JSON.parse(topStr));
       if (pkgStr) setPackages(JSON.parse(pkgStr));
+      if (csvcStr) setCustomProviderServices(JSON.parse(csvcStr));
     } catch {}
   }
 
@@ -912,6 +929,23 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     });
   }, [save]);
 
+  const addCustomProviderService = useCallback((svc: Omit<CustomProviderService, "id" | "createdAt">) => {
+    setCustomProviderServices((prev) => {
+      const newSvc: CustomProviderService = { ...svc, id: "csvc" + Date.now(), createdAt: new Date().toISOString() };
+      const updated = [newSvc, ...prev];
+      save(CUSTOM_SVCS_KEY, updated);
+      return updated;
+    });
+  }, [save]);
+
+  const deleteCustomProviderService = useCallback((id: string) => {
+    setCustomProviderServices((prev) => {
+      const updated = prev.filter((s) => s.id !== id);
+      save(CUSTOM_SVCS_KEY, updated);
+      return updated;
+    });
+  }, [save]);
+
   const getRequestsByCustomer = useCallback((userId: string) =>
     requests.filter((r) => r.customerId === userId), [requests]);
 
@@ -945,6 +979,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       addCoupon, updateCoupon, deleteCoupon, validateCoupon,
       addPackage, approvePackage, rejectPackage,
       blockCustomer, unblockCustomer,
+      customProviderServices, addCustomProviderService, deleteCustomProviderService,
     }}>
       {children}
     </DataContext.Provider>

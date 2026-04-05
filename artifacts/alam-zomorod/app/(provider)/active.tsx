@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import React from "react";
+import React, { useState } from "react";
 import {
   Alert,
   FlatList,
@@ -16,21 +16,36 @@ import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/context/AuthContext";
 import { useData } from "@/context/DataContext";
 import { Badge } from "@/components/ui/Badge";
+import { toHijriShort } from "@/utils/date";
+
+type FilterTab = "all" | "accepted" | "in_progress" | "completed";
 
 export default function ProviderActiveScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { getRequestsByProvider, startService, completeService, cancelRequest } = useData();
+  const { getRequestsByProvider, startService, completeService } = useData();
+  const [filter, setFilter] = useState<FilterTab>("all");
   const webTopPad = Platform.OS === "web" ? 67 : 0;
   const webBottomPad = Platform.OS === "web" ? 34 : 0;
 
-  const myJobs = getRequestsByProvider(user?.id || "").filter((r) =>
-    ["accepted", "in_progress"].includes(r.status)
+  const allJobs = getRequestsByProvider(user?.id || "").filter((r) =>
+    ["accepted", "in_progress", "completed"].includes(r.status)
   );
-  const completedJobs = getRequestsByProvider(user?.id || "").filter((r) =>
-    r.status === "completed"
-  ).slice(0, 5);
+
+  const filteredJobs =
+    filter === "all"
+      ? allJobs
+      : allJobs.filter((r) => r.status === filter);
+
+  const activeCount = allJobs.filter((r) => ["accepted", "in_progress"].includes(r.status)).length;
+
+  const tabs: { key: FilterTab; label: string }[] = [
+    { key: "all", label: "الكل" },
+    { key: "accepted", label: "مقبول" },
+    { key: "in_progress", label: "قيد التنفيذ" },
+    { key: "completed", label: "مكتمل" },
+  ];
 
   function handleCall(phone?: string) {
     if (!phone) return;
@@ -66,32 +81,42 @@ export default function ProviderActiveScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: insets.top + webTopPad + 10, borderBottomColor: colors.border }]}>
-        <Text style={[styles.title, { color: colors.foreground }]}>الطلبات النشطة</Text>
-        <Badge label={`${myJobs.length} نشط`} variant={myJobs.length > 0 ? "success" : "default"} />
+        <Text style={[styles.title, { color: colors.foreground }]}>طلباتي</Text>
+        <Badge label={`${activeCount} نشط`} variant={activeCount > 0 ? "success" : "default"} />
+      </View>
+
+      <View style={[styles.tabBar, { backgroundColor: colors.muted }]}>
+        {tabs.map((t) => (
+          <TouchableOpacity
+            key={t.key}
+            style={[styles.tabItem, filter === t.key && { backgroundColor: colors.card }]}
+            onPress={() => setFilter(t.key)}
+          >
+            <Text style={[
+              styles.tabText,
+              { color: filter === t.key ? colors.primary : colors.mutedForeground,
+                fontFamily: filter === t.key ? "Inter_700Bold" : "Inter_400Regular" },
+            ]}>
+              {t.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       <FlatList
-        data={[...myJobs, ...completedJobs]}
+        data={filteredJobs}
         keyExtractor={(i) => i.id}
         contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + webBottomPad + 90 }]}
-        ListHeaderComponent={
-          completedJobs.length > 0 && myJobs.length === 0 ? (
-            <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
-              آخر الطلبات المنجزة
-            </Text>
-          ) : null
-        }
         ListEmptyComponent={() => (
           <View style={styles.empty}>
             <Feather name="briefcase" size={48} color={colors.mutedForeground} />
-            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>لا توجد طلبات نشطة</Text>
+            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>لا توجد طلبات</Text>
             <Text style={[styles.emptyDesc, { color: colors.mutedForeground }]}>
               قدّم عروضك على طلبات العملاء من تبويب الطلبات
             </Text>
           </View>
         )}
         renderItem={({ item }) => {
-          const isActive = ["accepted", "in_progress"].includes(item.status);
           const isAccepted = item.status === "accepted";
           const isInProgress = item.status === "in_progress";
           const isCompleted = item.status === "completed";
@@ -100,7 +125,7 @@ export default function ProviderActiveScreen() {
             <View style={[styles.jobCard, {
               backgroundColor: colors.card,
               borderColor: isInProgress ? colors.accent : isAccepted ? colors.primary : colors.border,
-              borderWidth: isActive ? 1.5 : 1,
+              borderWidth: isInProgress || isAccepted ? 1.5 : 1,
             }]}>
               {isInProgress && (
                 <View style={[styles.inProgressBanner, { backgroundColor: colors.accent }]}>
@@ -110,21 +135,22 @@ export default function ProviderActiveScreen() {
               )}
 
               <View style={styles.jobTop}>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text style={[styles.jobService, { color: colors.foreground }]}>{item.serviceName}</Text>
                   <Text style={[styles.jobCat, { color: colors.mutedForeground }]}>{item.categoryName}</Text>
+                  <View style={styles.metaRow}>
+                    <Feather name="calendar" size={12} color={colors.mutedForeground} />
+                    <Text style={[styles.metaText, { color: colors.mutedForeground }]}>
+                      {" "}{toHijriShort(item.scheduledAt)}
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.jobRight}>
-                  <Text style={[styles.jobPrice, { color: colors.primary }]}>{item.price} ر.س</Text>
-                </View>
+                <Text style={[styles.jobPrice, { color: colors.primary }]}>{item.price} ر.س</Text>
               </View>
 
               <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
               <View style={styles.clientSection}>
-                <Text style={[styles.sectionHead, { color: colors.foreground }]}>
-                  {item.contactRevealed ? "معلومات العميل" : "العميل"}
-                </Text>
                 <View style={styles.clientRow}>
                   <View style={[styles.clientAvatar, { backgroundColor: colors.primary + "20" }]}>
                     <Feather name="user" size={18} color={colors.primary} />
@@ -147,14 +173,6 @@ export default function ProviderActiveScreen() {
                     </TouchableOpacity>
                   )}
                 </View>
-                {!item.contactRevealed && (
-                  <View style={[styles.hiddenNote, { backgroundColor: colors.muted }]}>
-                    <Feather name="lock" size={12} color={colors.mutedForeground} />
-                    <Text style={[styles.hiddenText, { color: colors.mutedForeground }]}>
-                      سيتم الكشف عن معلومات العميل بعد قبول العرض
-                    </Text>
-                  </View>
-                )}
               </View>
 
               {isAccepted && (
@@ -194,12 +212,24 @@ export default function ProviderActiveScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
-    paddingHorizontal: 20, paddingBottom: 14, borderBottomWidth: 1,
+    paddingHorizontal: 20, paddingBottom: 12, borderBottomWidth: 1,
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
   },
   title: { fontSize: 22, fontFamily: "Inter_700Bold" },
-  list: { padding: 16, gap: 12 },
-  sectionLabel: { fontSize: 14, fontFamily: "Inter_600SemiBold", textAlign: "right", marginBottom: 8 },
+  tabBar: {
+    flexDirection: "row",
+    margin: 12,
+    borderRadius: 12,
+    padding: 4,
+  },
+  tabItem: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  tabText: { fontSize: 12 },
+  list: { paddingHorizontal: 12, paddingTop: 4, gap: 12 },
   empty: { alignItems: "center", paddingVertical: 60, gap: 14 },
   emptyTitle: { fontSize: 17, fontFamily: "Inter_700Bold" },
   emptyDesc: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", paddingHorizontal: 40, lineHeight: 22 },
@@ -209,20 +239,18 @@ const styles = StyleSheet.create({
   jobTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", padding: 16, paddingBottom: 12 },
   jobService: { fontSize: 16, fontFamily: "Inter_700Bold", textAlign: "right" },
   jobCat: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "right" },
-  jobRight: { alignItems: "flex-end" },
+  metaRow: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", marginTop: 4 },
+  metaText: { fontSize: 12, fontFamily: "Inter_400Regular" },
   jobPrice: { fontSize: 18, fontFamily: "Inter_700Bold" },
   divider: { height: 1, marginHorizontal: 16 },
-  clientSection: { padding: 16, gap: 10 },
-  sectionHead: { fontSize: 13, fontFamily: "Inter_700Bold", textAlign: "right" },
-  clientRow: { flexDirection: "row", alignItems: "center", gap: 10, flexDirection: "row-reverse", justifyContent: "flex-start" },
+  clientSection: { padding: 16 },
+  clientRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   clientAvatar: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   clientInfo: { flex: 1, alignItems: "flex-end" },
   clientName: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
   addrRow: { flexDirection: "row", alignItems: "center" },
   clientAddr: { fontSize: 12, fontFamily: "Inter_400Regular" },
   callBtn: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
-  hiddenNote: { flexDirection: "row", alignItems: "center", padding: 10, borderRadius: 10, gap: 6, justifyContent: "flex-end" },
-  hiddenText: { fontSize: 12, fontFamily: "Inter_400Regular" },
   actionBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", margin: 16, marginTop: 0, padding: 14, borderRadius: 12, gap: 8 },
   actionBtnText: { color: "#fff", fontSize: 15, fontFamily: "Inter_700Bold" },
   completedBadge: { flexDirection: "row", alignItems: "center", justifyContent: "center", margin: 16, marginTop: 0, padding: 12, borderRadius: 12, gap: 8 },

@@ -41,7 +41,14 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
   - Admin: coupon management (CRUD, fixed/percent)
   - Admin: package approval workflow
   - Admin: wallet top-up request approval
-  - Provider: service on/off toggle, wallet top-up request modal
+  - Provider: service on/off toggle (all global services), wallet top-up request modal (admin-approved)
+  - Provider: custom service creation (name, description, price, duration) with delete
+  - Provider: requests screen with 3 tabs (available / my offers / accepted) + Hijri dates
+  - Provider: active jobs screen with 4 filter tabs (all / accepted / in_progress / completed)
+  - Provider: earnings screen uses requestWalletTopup (admin approval required, no direct recharge)
+  - Customer: profile has no wallet recharge; bell icon navigates to notifications
+  - Hijri calendar dates throughout (utils/date.ts utility)
+  - Rating modal has onRequestClose to prevent navigation freeze
 - **Local storage**: AsyncStorage (no backend for first build)
 - **Target stores**: iOS App Store (via Expo Launch), Google Play (manual EAS)
 

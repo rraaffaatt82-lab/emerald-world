@@ -62,6 +62,7 @@ export default function HomeScreen() {
         </View>
         <TouchableOpacity
           style={[styles.notifBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={() => router.push("/(tabs)/notifications")}
         >
           <Feather name="bell" size={22} color={colors.foreground} />
           <View style={[styles.notifDot, { backgroundColor: colors.destructive }]} />

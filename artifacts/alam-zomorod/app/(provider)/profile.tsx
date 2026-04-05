@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/context/AuthContext";
 import { useData, SERVICES } from "@/context/DataContext";
+import { toHijriShort } from "@/utils/date";
 import { StarRating } from "@/components/ui/StarRating";
 import { Badge } from "@/components/ui/Badge";
 
@@ -27,7 +28,11 @@ export default function ProviderProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
-  const { providers, updateProvider, getRequestsByProvider, walletTransactions, requestWalletTopup, notifications, markNotificationRead, markAllRead } = useData();
+  const {
+    providers, updateProvider, getRequestsByProvider, walletTransactions,
+    requestWalletTopup, notifications, markNotificationRead, markAllRead,
+    customProviderServices, addCustomProviderService, deleteCustomProviderService,
+  } = useData();
   const webTopPad = Platform.OS === "web" ? 67 : 0;
   const webBottomPad = Platform.OS === "web" ? 34 : 0;
   const [tab, setTab] = useState<TabKey>("overview");
@@ -35,6 +40,11 @@ export default function ProviderProfileScreen() {
   const [topupAmount, setTopupAmount] = useState("");
   const [topupNote, setTopupNote] = useState("");
   const [serviceFilter, setServiceFilter] = useState("");
+  const [showAddSvcModal, setShowAddSvcModal] = useState(false);
+  const [newSvcName, setNewSvcName] = useState("");
+  const [newSvcDesc, setNewSvcDesc] = useState("");
+  const [newSvcPrice, setNewSvcPrice] = useState("");
+  const [newSvcDuration, setNewSvcDuration] = useState("");
 
   const provider = providers.find((p) => p.id === user?.id);
   const myJobs = getRequestsByProvider(user?.id || "");
@@ -43,10 +53,9 @@ export default function ProviderProfileScreen() {
   const myNotifications = notifications.filter((n) => n.userId === user?.id);
   const unreadCount = myNotifications.filter((n) => !n.isRead).length;
 
-  const providerServices = SERVICES.filter((s) => provider?.services.includes(s.id));
   const filteredServices = serviceFilter
-    ? providerServices.filter((s) => s.name.includes(serviceFilter) || s.description.includes(serviceFilter))
-    : providerServices;
+    ? SERVICES.filter((s) => s.name.includes(serviceFilter) || s.description.includes(serviceFilter))
+    : SERVICES;
 
   function handleToggleAvailable() {
     if (!provider) return;
@@ -82,6 +91,29 @@ export default function ProviderProfileScreen() {
       : [...provider.services, serviceId];
     updateProvider(provider.id, { services: updated });
   }
+
+  function handleAddCustomSvc() {
+    if (!newSvcName.trim() || !user) return;
+    const price = parseFloat(newSvcPrice);
+    if (isNaN(price) || price <= 0) {
+      Alert.alert("خطأ", "يرجى إدخال سعر صحيح");
+      return;
+    }
+    addCustomProviderService({
+      providerId: user.id,
+      name: newSvcName.trim(),
+      description: newSvcDesc.trim(),
+      price,
+      duration: parseInt(newSvcDuration) || undefined,
+    });
+    setShowAddSvcModal(false);
+    setNewSvcName("");
+    setNewSvcDesc("");
+    setNewSvcPrice("");
+    setNewSvcDuration("");
+  }
+
+  const myCustomServices = customProviderServices.filter((s) => s.providerId === user?.id);
 
   const tabs: { key: TabKey; label: string; icon: string }[] = [
     { key: "overview", label: "الملف", icon: "user" },
@@ -250,6 +282,59 @@ export default function ProviderProfileScreen() {
               <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>لا توجد نتائج</Text>
             </View>
           )}
+
+          <View style={[styles.customSvcHeader]}>
+            <TouchableOpacity
+              style={[styles.addSvcBtn, { backgroundColor: colors.primary }]}
+              onPress={() => setShowAddSvcModal(true)}
+            >
+              <Feather name="plus" size={16} color="#fff" />
+              <Text style={styles.addSvcBtnText}>إضافة خدمة مخصصة</Text>
+            </TouchableOpacity>
+            <Text style={[styles.customSvcTitle, { color: colors.foreground }]}>خدماتي المخصصة</Text>
+          </View>
+
+          {myCustomServices.length === 0 ? (
+            <View style={[styles.emptyCustom, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Feather name="plus-square" size={28} color={colors.mutedForeground} />
+              <Text style={[styles.emptyCustomText, { color: colors.mutedForeground }]}>
+                أضافي خدماتك الخاصة مع وصف وسعر مخصص
+              </Text>
+            </View>
+          ) : (
+            myCustomServices.map((svc) => (
+              <View key={svc.id} style={[styles.customSvcRow, { backgroundColor: colors.card, borderColor: colors.primary + "30" }]}>
+                <TouchableOpacity
+                  style={[styles.deleteSvcBtn, { backgroundColor: colors.destructive + "15" }]}
+                  onPress={() => {
+                    Alert.alert("حذف الخدمة", `هل تريدين حذف "${svc.name}"؟`, [
+                      { text: "إلغاء", style: "cancel" },
+                      { text: "حذف", style: "destructive", onPress: () => deleteCustomProviderService(svc.id) },
+                    ]);
+                  }}
+                >
+                  <Feather name="trash-2" size={16} color={colors.destructive} />
+                </TouchableOpacity>
+                <View style={{ flex: 1, alignItems: "flex-end" }}>
+                  <View style={styles.customSvcNameRow}>
+                    <View style={[styles.customBadge, { backgroundColor: colors.accent + "20" }]}>
+                      <Text style={[styles.customBadgeText, { color: colors.accent }]}>مخصص</Text>
+                    </View>
+                    <Text style={[styles.customSvcName, { color: colors.foreground }]}>{svc.name}</Text>
+                  </View>
+                  {svc.description ? (
+                    <Text style={[styles.customSvcDesc, { color: colors.mutedForeground }]}>{svc.description}</Text>
+                  ) : null}
+                  <View style={styles.customSvcMeta}>
+                    <Text style={[styles.customSvcPrice, { color: colors.primary }]}>{svc.price} ر.س</Text>
+                    {svc.duration ? (
+                      <Text style={[styles.customSvcDur, { color: colors.mutedForeground }]}>{svc.duration} دقيقة</Text>
+                    ) : null}
+                  </View>
+                </View>
+              </View>
+            ))
+          )}
         </>
       )}
 
@@ -321,7 +406,7 @@ export default function ProviderProfileScreen() {
                 <Text style={[styles.notifTitle, { color: colors.foreground }]}>{n.title}</Text>
                 <Text style={[styles.notifBody, { color: colors.mutedForeground }]}>{n.body}</Text>
                 <Text style={[styles.notifTime, { color: colors.mutedForeground }]}>
-                  {new Date(n.createdAt).toLocaleDateString("ar-SA")}
+                  {toHijriShort(n.createdAt)}
                 </Text>
               </View>
               {!n.isRead && <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />}
@@ -336,7 +421,79 @@ export default function ProviderProfileScreen() {
         </>
       )}
 
-      <Modal visible={showTopupModal} transparent animationType="slide">
+      <Modal
+        visible={showAddSvcModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowAddSvcModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modal, { backgroundColor: colors.card }]}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => setShowAddSvcModal(false)}>
+                <Feather name="x" size={22} color={colors.foreground} />
+              </TouchableOpacity>
+              <Text style={[styles.modalTitle, { color: colors.foreground }]}>إضافة خدمة مخصصة</Text>
+            </View>
+            <Text style={[styles.fieldLabel, { color: colors.foreground }]}>اسم الخدمة *</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+              value={newSvcName}
+              onChangeText={setNewSvcName}
+              placeholder="مثال: مساج استرخاء..."
+              placeholderTextColor={colors.mutedForeground}
+              textAlign="right"
+            />
+            <Text style={[styles.fieldLabel, { color: colors.foreground }]}>الوصف</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+              value={newSvcDesc}
+              onChangeText={setNewSvcDesc}
+              placeholder="وصف مختصر للخدمة..."
+              placeholderTextColor={colors.mutedForeground}
+              multiline
+              numberOfLines={2}
+              textAlign="right"
+            />
+            <View style={styles.addSvcPriceRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.fieldLabel, { color: colors.foreground }]}>المدة (دقيقة)</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+                  value={newSvcDuration}
+                  onChangeText={setNewSvcDuration}
+                  keyboardType="numeric"
+                  placeholder="60"
+                  placeholderTextColor={colors.mutedForeground}
+                  textAlign="right"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.fieldLabel, { color: colors.foreground }]}>السعر (ر.س) *</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+                  value={newSvcPrice}
+                  onChangeText={setNewSvcPrice}
+                  keyboardType="numeric"
+                  placeholder="150"
+                  placeholderTextColor={colors.mutedForeground}
+                  textAlign="right"
+                />
+              </View>
+            </View>
+            <TouchableOpacity
+              style={[styles.topupSubmitBtn, { backgroundColor: colors.primary, opacity: newSvcName.trim() && newSvcPrice ? 1 : 0.5 }]}
+              onPress={handleAddCustomSvc}
+              disabled={!newSvcName.trim() || !newSvcPrice}
+            >
+              <Feather name="plus-circle" size={18} color="#fff" />
+              <Text style={styles.topupSubmitText}>إضافة الخدمة</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showTopupModal} transparent animationType="slide" onRequestClose={() => setShowTopupModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modal, { backgroundColor: colors.card }]}>
             <View style={styles.modalHeader}>
@@ -464,4 +621,21 @@ const styles = StyleSheet.create({
   input: { borderRadius: 12, borderWidth: 1, padding: 12, fontSize: 15, fontFamily: "Inter_400Regular" },
   topupSubmitBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 16, borderRadius: 14, gap: 10, marginTop: 4 },
   topupSubmitText: { color: "#fff", fontSize: 16, fontFamily: "Inter_700Bold" },
+  customSvcHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 8 },
+  customSvcTitle: { fontSize: 15, fontFamily: "Inter_700Bold", textAlign: "right" },
+  addSvcBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
+  addSvcBtnText: { color: "#fff", fontSize: 13, fontFamily: "Inter_700Bold" },
+  emptyCustom: { borderRadius: 14, borderWidth: 1, padding: 20, alignItems: "center", gap: 8 },
+  emptyCustomText: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 20 },
+  customSvcRow: { flexDirection: "row", alignItems: "center", gap: 10, padding: 14, borderRadius: 14, borderWidth: 1 },
+  deleteSvcBtn: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  customSvcNameRow: { flexDirection: "row", alignItems: "center", gap: 8, justifyContent: "flex-end" },
+  customBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
+  customBadgeText: { fontSize: 10, fontFamily: "Inter_700Bold" },
+  customSvcName: { fontSize: 14, fontFamily: "Inter_700Bold" },
+  customSvcDesc: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "right", lineHeight: 18 },
+  customSvcMeta: { flexDirection: "row", alignItems: "center", gap: 10, justifyContent: "flex-end", marginTop: 4 },
+  customSvcPrice: { fontSize: 14, fontFamily: "Inter_700Bold" },
+  customSvcDur: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  addSvcPriceRow: { flexDirection: "row", gap: 12 },
 });
