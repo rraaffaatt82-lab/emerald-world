@@ -187,6 +187,7 @@ export interface CustomProviderService {
   description: string;
   price: number;
   duration?: number;
+  status: "pending" | "approved" | "rejected";
   createdAt: string;
 }
 
@@ -242,8 +243,11 @@ interface DataContextType {
   blockCustomer: (providerId: string, customerId: string) => void;
   unblockCustomer: (providerId: string, customerId: string) => void;
   customProviderServices: CustomProviderService[];
-  addCustomProviderService: (svc: Omit<CustomProviderService, "id" | "createdAt">) => void;
+  addCustomProviderService: (svc: Omit<CustomProviderService, "id" | "createdAt" | "status">) => void;
   deleteCustomProviderService: (id: string) => void;
+  approveCustomService: (id: string) => void;
+  rejectCustomService: (id: string) => void;
+  removeFromFavorites: (providerId: string) => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -756,6 +760,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     });
   }, [save]);
 
+  const removeFromFavorites = useCallback((providerId: string) => {
+    setFavorites((prev) => {
+      const newFavs = prev.filter((id) => id !== providerId);
+      save(FAV_KEY, newFavs);
+      return newFavs;
+    });
+  }, [save]);
+
   const addWalletTransaction = useCallback((tx: Omit<WalletTransaction, "id">) => {
     setWalletTransactions((prev) => {
       const newTx: WalletTransaction = { ...tx, id: "tx" + Date.now() };
@@ -929,14 +941,20 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     });
   }, [save]);
 
-  const addCustomProviderService = useCallback((svc: Omit<CustomProviderService, "id" | "createdAt">) => {
+  const addCustomProviderService = useCallback((svc: Omit<CustomProviderService, "id" | "createdAt" | "status">) => {
     setCustomProviderServices((prev) => {
-      const newSvc: CustomProviderService = { ...svc, id: "csvc" + Date.now(), createdAt: new Date().toISOString() };
+      const newSvc: CustomProviderService = { ...svc, id: "csvc" + Date.now(), createdAt: new Date().toISOString(), status: "pending" };
       const updated = [newSvc, ...prev];
       save(CUSTOM_SVCS_KEY, updated);
       return updated;
     });
-  }, [save]);
+    addNotification({
+      userId: "3", role: "admin", type: "new_request",
+      title: "خدمة مخصصة بانتظار الموافقة",
+      body: `${svc.name} — ${svc.description}`,
+      isRead: false,
+    });
+  }, [save, addNotification]);
 
   const deleteCustomProviderService = useCallback((id: string) => {
     setCustomProviderServices((prev) => {
@@ -945,6 +963,40 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       return updated;
     });
   }, [save]);
+
+  const approveCustomService = useCallback((id: string) => {
+    setCustomProviderServices((prev) => {
+      const svc = prev.find((s) => s.id === id);
+      const updated = prev.map((s) => s.id === id ? { ...s, status: "approved" as const } : s);
+      save(CUSTOM_SVCS_KEY, updated);
+      if (svc) {
+        addNotification({
+          userId: svc.providerId, role: "provider", type: "account_approved",
+          title: "تمت الموافقة على خدمتك",
+          body: `تمت الموافقة على خدمة "${svc.name}" وأصبحت ظاهرة للعملاء`,
+          isRead: false,
+        });
+      }
+      return updated;
+    });
+  }, [save, addNotification]);
+
+  const rejectCustomService = useCallback((id: string) => {
+    setCustomProviderServices((prev) => {
+      const svc = prev.find((s) => s.id === id);
+      const updated = prev.map((s) => s.id === id ? { ...s, status: "rejected" as const } : s);
+      save(CUSTOM_SVCS_KEY, updated);
+      if (svc) {
+        addNotification({
+          userId: svc.providerId, role: "provider", type: "account_suspended",
+          title: "لم تُعتمد خدمتك",
+          body: `لم تُعتمد خدمة "${svc.name}" — تواصل مع الدعم لمزيد من التفاصيل`,
+          isRead: false,
+        });
+      }
+      return updated;
+    });
+  }, [save, addNotification]);
 
   const getRequestsByCustomer = useCallback((userId: string) =>
     requests.filter((r) => r.customerId === userId), [requests]);
@@ -980,6 +1032,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       addPackage, approvePackage, rejectPackage,
       blockCustomer, unblockCustomer,
       customProviderServices, addCustomProviderService, deleteCustomProviderService,
+      approveCustomService, rejectCustomService,
+      removeFromFavorites,
     }}>
       {children}
     </DataContext.Provider>

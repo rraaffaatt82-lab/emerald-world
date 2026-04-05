@@ -1,10 +1,10 @@
 import { Feather } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
-import React from "react";
+import React, { useState } from "react";
 import {
-  Alert,
   Linking,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -56,39 +56,32 @@ export default function OrderDetailScreen() {
     );
   }
 
+  const [confirmOffer, setConfirmOffer] = useState<{ offerId: string; providerName: string } | null>(null);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
   const currentStep = getStatusIndex(order.status);
   const pendingOffers = order.offers.filter((o) => o.status === "pending");
   const acceptedOffer = order.offers.find((o) => o.status === "accepted");
 
   function handleAcceptOffer(offerId: string, providerName: string) {
-    Alert.alert(
-      "قبول العرض",
-      `هل تريدين قبول عرض ${providerName}؟ سيتم مشاركة معلومات الاتصال مع بعضكما.`,
-      [
-        { text: "إلغاء", style: "cancel" },
-        {
-          text: "قبول",
-          onPress: () => {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            acceptOffer(order.id, offerId);
-          },
-        },
-      ]
-    );
+    setConfirmOffer({ offerId, providerName });
+  }
+
+  function doAcceptOffer() {
+    if (!confirmOffer) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    acceptOffer(order.id, confirmOffer.offerId);
+    setConfirmOffer(null);
   }
 
   function handleCancelRequest() {
-    Alert.alert("إلغاء الطلب", "هل أنت متأكدة؟ لا يمكن التراجع.", [
-      { text: "تراجع", style: "cancel" },
-      {
-        text: "إلغاء الطلب",
-        style: "destructive",
-        onPress: () => {
-          cancelRequest(order.id);
-          router.back();
-        },
-      },
-    ]);
+    setShowCancelConfirm(true);
+  }
+
+  function doCancelRequest() {
+    setShowCancelConfirm(false);
+    cancelRequest(order.id);
+    router.back();
   }
 
   return (
@@ -282,6 +275,44 @@ export default function OrderDetailScreen() {
           <Text style={[styles.cancelBtnText, { color: colors.destructive }]}>{STRINGS.request.cancel}</Text>
         </TouchableOpacity>
       )}
+
+      <Modal visible={!!confirmOffer} transparent animationType="fade" onRequestClose={() => setConfirmOffer(null)}>
+        <TouchableOpacity style={styles.confirmOverlay} activeOpacity={1} onPress={() => setConfirmOffer(null)}>
+          <TouchableOpacity activeOpacity={1} style={[styles.confirmBox, { backgroundColor: colors.card }]} onPress={(e) => e.stopPropagation()}>
+            <Feather name="check-circle" size={32} color={colors.accent} style={{ alignSelf: "center" }} />
+            <Text style={[styles.confirmTitle, { color: colors.foreground }]}>قبول العرض</Text>
+            <Text style={[styles.confirmMsg, { color: colors.mutedForeground }]}>
+              هل تريدين قبول عرض {confirmOffer?.providerName}؟ ستُشارَك معلومات الاتصال مع بعضكما.
+            </Text>
+            <View style={styles.confirmActions}>
+              <TouchableOpacity style={[styles.confirmCancelBtn, { borderColor: colors.border }]} onPress={() => setConfirmOffer(null)}>
+                <Text style={[styles.confirmCancelText, { color: colors.foreground }]}>إلغاء</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.confirmPrimaryBtn, { backgroundColor: colors.accent }]} onPress={doAcceptOffer}>
+                <Text style={styles.confirmPrimaryText}>قبول</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal visible={showCancelConfirm} transparent animationType="fade" onRequestClose={() => setShowCancelConfirm(false)}>
+        <TouchableOpacity style={styles.confirmOverlay} activeOpacity={1} onPress={() => setShowCancelConfirm(false)}>
+          <TouchableOpacity activeOpacity={1} style={[styles.confirmBox, { backgroundColor: colors.card }]} onPress={(e) => e.stopPropagation()}>
+            <Feather name="x-circle" size={32} color={colors.destructive} style={{ alignSelf: "center" }} />
+            <Text style={[styles.confirmTitle, { color: colors.foreground }]}>إلغاء الطلب</Text>
+            <Text style={[styles.confirmMsg, { color: colors.mutedForeground }]}>هل أنت متأكدة؟ لا يمكن التراجع بعد الإلغاء.</Text>
+            <View style={styles.confirmActions}>
+              <TouchableOpacity style={[styles.confirmCancelBtn, { borderColor: colors.border }]} onPress={() => setShowCancelConfirm(false)}>
+                <Text style={[styles.confirmCancelText, { color: colors.foreground }]}>تراجع</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.confirmPrimaryBtn, { backgroundColor: colors.destructive }]} onPress={doCancelRequest}>
+                <Text style={styles.confirmPrimaryText}>إلغاء الطلب</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </ScrollView>
   );
 }
@@ -347,4 +378,13 @@ const styles = StyleSheet.create({
   notesText: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "right", lineHeight: 22 },
   cancelBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 14, borderRadius: 14, borderWidth: 1.5, gap: 8 },
   cancelBtnText: { fontSize: 15, fontFamily: "Inter_700Bold" },
+  confirmOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", padding: 24 },
+  confirmBox: { borderRadius: 20, padding: 24, width: "100%", gap: 12 },
+  confirmTitle: { fontSize: 18, fontFamily: "Inter_700Bold", textAlign: "center" },
+  confirmMsg: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 22 },
+  confirmActions: { flexDirection: "row", gap: 10, marginTop: 4 },
+  confirmCancelBtn: { flex: 1, padding: 14, borderRadius: 12, borderWidth: 1, alignItems: "center" },
+  confirmCancelText: { fontSize: 14, fontFamily: "Inter_700Bold" },
+  confirmPrimaryBtn: { flex: 1, padding: 14, borderRadius: 12, alignItems: "center" },
+  confirmPrimaryText: { color: "#fff", fontSize: 14, fontFamily: "Inter_700Bold" },
 });

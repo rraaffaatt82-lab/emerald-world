@@ -3,7 +3,6 @@ import { router, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
 import React, { useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -41,7 +40,7 @@ export default function RequestServiceScreen() {
   const { user } = useAuth();
   const { addRequest, validateCoupon, updateCoupon } = useData();
   const [step, setStep] = useState<Step>(params.serviceId ? "details" : "select-service");
-  const [selectedService, setSelectedService] = useState(params.serviceId || "");
+  const [selectedServices, setSelectedServices] = useState<string[]>(params.serviceId ? [params.serviceId] : []);
   const [selectedCat, setSelectedCat] = useState(
     params.serviceId ? (SERVICES.find((s) => s.id === params.serviceId)?.categoryId || "") : ""
   );
@@ -56,22 +55,28 @@ export default function RequestServiceScreen() {
   const [couponError, setCouponError] = useState("");
   const webTopPad = Platform.OS === "web" ? 67 : 0;
 
-  const service = SERVICES.find((s) => s.id === selectedService);
   const catServices = selectedCat ? SERVICES.filter((s) => s.categoryId === selectedCat) : SERVICES;
   const dayOptions = getDayOptions();
+  const selectedServiceObjects = selectedServices.map((id) => SERVICES.find((s) => s.id === id)!).filter(Boolean);
+  const totalBasePrice = selectedServiceObjects.reduce((sum, s) => sum + s.basePrice, 0);
 
-  const originalPrice = service?.basePrice || 0;
   let discountAmount = 0;
   if (appliedCoupon) {
     discountAmount = appliedCoupon.type === "percent"
-      ? Math.round(originalPrice * appliedCoupon.value / 100)
-      : Math.min(appliedCoupon.value, originalPrice);
+      ? Math.round(totalBasePrice * appliedCoupon.value / 100)
+      : Math.min(appliedCoupon.value, totalBasePrice);
   }
-  const finalPrice = Math.max(0, originalPrice - discountAmount);
+  const finalPrice = Math.max(0, totalBasePrice - discountAmount);
+
+  function toggleService(id: string) {
+    setSelectedServices((prev) =>
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
+    );
+  }
 
   function buildScheduledAt() {
     if (scheduleNow) return new Date().toISOString();
-    const d = dayOptions[selectedDayIndex].date;
+    const d = new Date(dayOptions[selectedDayIndex].date);
     const [h, m] = selectedHour.split(":");
     d.setHours(parseInt(h), parseInt(m), 0, 0);
     return d.toISOString();
@@ -90,37 +95,35 @@ export default function RequestServiceScreen() {
   }
 
   async function handleSubmit() {
-    if (!selectedService) {
-      Alert.alert("تنبيه", "يرجى اختيار الخدمة أولاً");
-      return;
-    }
-    if (!address.trim()) {
-      Alert.alert("تنبيه", "يرجى إدخال عنوانك");
-      return;
-    }
-    const svc = SERVICES.find((s) => s.id === selectedService)!;
-    const category = CATEGORIES.find((c) => c.id === svc.categoryId)!;
+    if (selectedServices.length === 0) return;
+    if (!address.trim()) return;
     setSubmitting(true);
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     await new Promise((r) => setTimeout(r, 500));
     if (appliedCoupon) {
       updateCoupon(appliedCoupon.id, { usedCount: appliedCoupon.usedCount + 1 });
     }
-    addRequest({
-      customerId: user?.id || "1",
-      customerName: user?.name || "عميل",
-      customerPhone: user?.phone,
-      serviceId: svc.id,
-      serviceName: svc.name,
-      categoryName: category.name,
-      status: "pending",
-      address: address.trim(),
-      scheduledAt: buildScheduledAt(),
-      scheduledLater: !scheduleNow,
-      notes: notes.trim() || undefined,
-      price: finalPrice,
-      radiusKm: 10,
-      couponCode: appliedCoupon?.code || undefined,
+    const scheduledAt = buildScheduledAt();
+    const perServiceDiscount = selectedServices.length > 1 ? Math.floor(discountAmount / selectedServices.length) : discountAmount;
+    selectedServiceObjects.forEach((svc, idx) => {
+      const category = CATEGORIES.find((c) => c.id === svc.categoryId)!;
+      const svcDiscount = idx === 0 ? discountAmount - perServiceDiscount * (selectedServices.length - 1) : perServiceDiscount;
+      addRequest({
+        customerId: user?.id || "1",
+        customerName: user?.name || "عميل",
+        customerPhone: user?.phone,
+        serviceId: svc.id,
+        serviceName: svc.name,
+        categoryName: category.name,
+        status: "pending",
+        address: address.trim(),
+        scheduledAt,
+        scheduledLater: !scheduleNow,
+        notes: notes.trim() || undefined,
+        price: Math.max(0, svc.basePrice - svcDiscount),
+        radiusKm: 10,
+        couponCode: appliedCoupon?.code || undefined,
+      });
     });
     setSubmitting(false);
     router.dismiss();
@@ -135,26 +138,41 @@ export default function RequestServiceScreen() {
             <Feather name="x" size={22} color={colors.foreground} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.foreground }]}>
-            {step === "select-service" ? "اختاري الخدمة" : "تفاصيل الطلب"}
+            {step === "select-service" ? "اختاري الخدمات" : "تفاصيل الطلب"}
           </Text>
-          <View style={{ width: 36 }} />
+          {step === "details" ? (
+            <TouchableOpacity onPress={() => setStep("select-service")} style={styles.closeBtn}>
+              <Feather name="plus-circle" size={22} color={colors.primary} />
+            </TouchableOpacity>
+          ) : (
+            <View style={{ width: 36 }} />
+          )}
         </View>
 
         {step === "select-service" ? (
           <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            {selectedServices.length > 0 && (
+              <View style={[styles.selectedBanner, { backgroundColor: colors.primary + "12", borderColor: colors.primary + "30" }]}>
+                <Feather name="check-circle" size={16} color={colors.primary} />
+                <Text style={[styles.selectedBannerText, { color: colors.primary }]}>
+                  تم اختيار {selectedServices.length} {selectedServices.length === 1 ? "خدمة" : "خدمات"}
+                </Text>
+              </View>
+            )}
+
             <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>اختاري التصنيف</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catRow}>
+              <TouchableOpacity
+                style={[styles.catChip, { backgroundColor: selectedCat === "" ? colors.primary : colors.muted, borderColor: selectedCat === "" ? colors.primary : colors.border }]}
+                onPress={() => setSelectedCat("")}
+              >
+                <Text style={[styles.catChipText, { color: selectedCat === "" ? "#fff" : colors.foreground }]}>الكل</Text>
+              </TouchableOpacity>
               {CATEGORIES.map((cat) => (
                 <TouchableOpacity
                   key={cat.id}
-                  style={[
-                    styles.catChip,
-                    {
-                      backgroundColor: selectedCat === cat.id ? colors.primary : colors.muted,
-                      borderColor: selectedCat === cat.id ? colors.primary : colors.border,
-                    },
-                  ]}
-                  onPress={() => { setSelectedCat(cat.id); setSelectedService(""); }}
+                  style={[styles.catChip, { backgroundColor: selectedCat === cat.id ? colors.primary : colors.muted, borderColor: selectedCat === cat.id ? colors.primary : colors.border }]}
+                  onPress={() => setSelectedCat(cat.id)}
                 >
                   <Feather name={cat.icon as any} size={14} color={selectedCat === cat.id ? "#fff" : colors.mutedForeground} />
                   <Text style={[styles.catChipText, { color: selectedCat === cat.id ? "#fff" : colors.foreground }]}>
@@ -164,63 +182,88 @@ export default function RequestServiceScreen() {
               ))}
             </ScrollView>
 
-            <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>الخدمات المتاحة</Text>
+            <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
+              الخدمات المتاحة — اختاري خدمة أو أكثر
+            </Text>
             <View style={styles.serviceGrid}>
-              {catServices.map((svc) => (
-                <TouchableOpacity
-                  key={svc.id}
-                  style={[
-                    styles.serviceCard,
-                    {
-                      backgroundColor: selectedService === svc.id ? colors.primary + "12" : colors.card,
-                      borderColor: selectedService === svc.id ? colors.primary : colors.border,
-                    },
-                  ]}
-                  onPress={() => setSelectedService(svc.id)}
-                >
-                  {selectedService === svc.id && (
-                    <View style={[styles.selectedCheck, { backgroundColor: colors.primary }]}>
-                      <Feather name="check" size={12} color="#fff" />
+              {catServices.map((svc) => {
+                const isSelected = selectedServices.includes(svc.id);
+                return (
+                  <TouchableOpacity
+                    key={svc.id}
+                    style={[styles.serviceCard, { backgroundColor: isSelected ? colors.primary + "12" : colors.card, borderColor: isSelected ? colors.primary : colors.border }]}
+                    onPress={() => toggleService(svc.id)}
+                  >
+                    {isSelected && (
+                      <View style={[styles.selectedCheck, { backgroundColor: colors.primary }]}>
+                        <Feather name="check" size={12} color="#fff" />
+                      </View>
+                    )}
+                    <Text style={[styles.svcName, { color: colors.foreground }]}>{svc.name}</Text>
+                    <Text style={[styles.svcDesc, { color: colors.mutedForeground }]}>{svc.description}</Text>
+                    <View style={styles.svcMeta}>
+                      <View style={styles.svcMetaItem}>
+                        <Feather name="clock" size={12} color={colors.mutedForeground} />
+                        <Text style={[styles.svcMetaText, { color: colors.mutedForeground }]}> {svc.duration} دقيقة</Text>
+                      </View>
+                      <Text style={[styles.svcPrice, { color: colors.primary }]}>من {svc.basePrice} ر.س</Text>
                     </View>
-                  )}
-                  <Text style={[styles.svcName, { color: colors.foreground }]}>{svc.name}</Text>
-                  <Text style={[styles.svcDesc, { color: colors.mutedForeground }]}>{svc.description}</Text>
-                  <View style={styles.svcMeta}>
-                    <View style={styles.svcMetaItem}>
-                      <Feather name="clock" size={12} color={colors.mutedForeground} />
-                      <Text style={[styles.svcMetaText, { color: colors.mutedForeground }]}> {svc.duration} دقيقة</Text>
-                    </View>
-                    <Text style={[styles.svcPrice, { color: colors.primary }]}>من {svc.basePrice} ر.س</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             <TouchableOpacity
-              style={[styles.nextBtn, { backgroundColor: colors.primary }, !selectedService && { opacity: 0.45 }]}
-              onPress={() => selectedService && setStep("details")}
-              disabled={!selectedService}
+              style={[styles.nextBtn, { backgroundColor: colors.primary }, selectedServices.length === 0 && { opacity: 0.45 }]}
+              onPress={() => selectedServices.length > 0 && setStep("details")}
+              disabled={selectedServices.length === 0}
             >
-              <Text style={styles.nextBtnText}>التالي</Text>
+              <Text style={styles.nextBtnText}>
+                التالي {selectedServices.length > 0 ? `(${selectedServices.length} خدمات)` : ""}
+              </Text>
               <Feather name="arrow-left" size={18} color="#fff" />
             </TouchableOpacity>
           </ScrollView>
         ) : (
           <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-            {service && (
-              <View style={[styles.selectedServiceBanner, { backgroundColor: colors.primary + "12", borderColor: colors.primary + "30" }]}>
-                <Feather name="check-circle" size={18} color={colors.primary} />
-                <View style={{ flex: 1, alignItems: "flex-end" }}>
-                  <Text style={[styles.selectedServiceName, { color: colors.primary }]}>{service.name}</Text>
-                  <Text style={[styles.selectedServicePrice, { color: colors.mutedForeground }]}>
-                    السعر المبدئي: {service.basePrice} ر.س
-                  </Text>
-                </View>
+            <View style={[styles.selectedServicesCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={styles.selectedServicesHeader}>
                 <TouchableOpacity onPress={() => setStep("select-service")}>
                   <Text style={[styles.changeLink, { color: colors.accent }]}>تغيير</Text>
                 </TouchableOpacity>
+                <Text style={[styles.selectedServicesTitle, { color: colors.foreground }]}>
+                  الخدمات المختارة ({selectedServices.length})
+                </Text>
               </View>
-            )}
+              {selectedServiceObjects.map((svc, i) => (
+                <View key={svc.id} style={[styles.selectedSvcRow, i < selectedServiceObjects.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+                  <Text style={[styles.selectedSvcPrice, { color: colors.primary }]}>{svc.basePrice} ر.س</Text>
+                  <View style={styles.selectedSvcInfo}>
+                    <Text style={[styles.selectedSvcName, { color: colors.foreground }]}>{svc.name}</Text>
+                    <Text style={[styles.selectedSvcCat, { color: colors.mutedForeground }]}>
+                      {CATEGORIES.find((c) => c.id === svc.categoryId)?.name}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => {
+                      const updated = selectedServices.filter((id) => id !== svc.id);
+                      setSelectedServices(updated);
+                      if (updated.length === 0) setStep("select-service");
+                    }}
+                    style={[styles.removeSvcBtn, { backgroundColor: colors.destructive + "15" }]}
+                  >
+                    <Feather name="x" size={14} color={colors.destructive} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+              <TouchableOpacity
+                style={[styles.addMoreBtn, { borderColor: colors.primary + "50" }]}
+                onPress={() => setStep("select-service")}
+              >
+                <Feather name="plus" size={16} color={colors.primary} />
+                <Text style={[styles.addMoreText, { color: colors.primary }]}>إضافة خدمة أخرى</Text>
+              </TouchableOpacity>
+            </View>
 
             <Text style={[styles.fieldLabel, { color: colors.foreground }]}>عنوانك</Text>
             <View style={[styles.inputWrap, { borderColor: address ? colors.primary : colors.border, backgroundColor: colors.muted }]}>
@@ -309,7 +352,7 @@ export default function RequestServiceScreen() {
                 />
               </View>
             </View>
-            {couponError && <Text style={[styles.couponError, { color: colors.destructive }]}>{couponError}</Text>}
+            {couponError !== "" && <Text style={[styles.couponError, { color: colors.destructive }]}>{couponError}</Text>}
             {appliedCoupon && (
               <View style={[styles.couponSuccess, { backgroundColor: colors.success + "15", borderColor: colors.success + "30" }]}>
                 <Feather name="check-circle" size={14} color={colors.success} />
@@ -332,23 +375,25 @@ export default function RequestServiceScreen() {
               textAlignVertical="top"
             />
 
-            {appliedCoupon && (
-              <View style={[styles.priceSummary, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={styles.priceRow}>
-                  <Text style={[styles.priceValue, { color: colors.foreground }]}>{originalPrice} ر.س</Text>
-                  <Text style={[styles.priceLabel, { color: colors.mutedForeground }]}>السعر الأصلي</Text>
+            <View style={[styles.priceSummary, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              {selectedServiceObjects.map((svc) => (
+                <View key={svc.id} style={styles.priceRow}>
+                  <Text style={[styles.priceValue, { color: colors.foreground }]}>{svc.basePrice} ر.س</Text>
+                  <Text style={[styles.priceLabel, { color: colors.mutedForeground }]}>{svc.name}</Text>
                 </View>
+              ))}
+              {appliedCoupon && (
                 <View style={styles.priceRow}>
                   <Text style={[styles.priceValue, { color: colors.destructive }]}>- {discountAmount} ر.س</Text>
                   <Text style={[styles.priceLabel, { color: colors.mutedForeground }]}>الخصم</Text>
                 </View>
-                <View style={[styles.priceDivider, { backgroundColor: colors.border }]} />
-                <View style={styles.priceRow}>
-                  <Text style={[styles.priceFinal, { color: colors.primary }]}>{finalPrice} ر.س</Text>
-                  <Text style={[styles.priceFinalLabel, { color: colors.foreground }]}>الإجمالي</Text>
-                </View>
+              )}
+              <View style={[styles.priceDivider, { backgroundColor: colors.border }]} />
+              <View style={styles.priceRow}>
+                <Text style={[styles.priceFinal, { color: colors.primary }]}>{finalPrice} ر.س</Text>
+                <Text style={[styles.priceFinalLabel, { color: colors.foreground }]}>الإجمالي</Text>
               </View>
-            )}
+            </View>
 
             <View style={[styles.privacyBox, { backgroundColor: colors.accent + "10", borderColor: colors.accent + "30" }]}>
               <Feather name="shield" size={16} color={colors.accent} />
@@ -358,18 +403,20 @@ export default function RequestServiceScreen() {
             </View>
 
             <TouchableOpacity
-              style={[styles.submitBtn, { backgroundColor: colors.primary }, submitting && { opacity: 0.7 }]}
+              style={[styles.submitBtn, { backgroundColor: colors.primary }, (submitting || selectedServices.length === 0 || !address.trim()) && { opacity: 0.6 }]}
               onPress={handleSubmit}
-              disabled={submitting}
+              disabled={submitting || selectedServices.length === 0 || !address.trim()}
             >
               <Feather name="send" size={18} color="#fff" />
-              <Text style={styles.submitBtnText}>{submitting ? "جارٍ الإرسال..." : "إرسال الطلب"}</Text>
+              <Text style={styles.submitBtnText}>
+                {submitting ? "جارٍ الإرسال..." : `إرسال ${selectedServices.length > 1 ? `${selectedServices.length} طلبات` : "الطلب"}`}
+              </Text>
             </TouchableOpacity>
 
             <View style={styles.afterSubmitNote}>
               <Feather name="bell" size={14} color={colors.mutedForeground} />
               <Text style={[styles.afterSubmitText, { color: colors.mutedForeground }]}>
-                بعد الإرسال ستجدين طلبك في صفحة "طلباتي" وتستطيعين متابعة العروض من هناك
+                بعد الإرسال ستجدين طلباتك في صفحة "طلباتي" وتستطيعين متابعة العروض من هناك
               </Text>
             </View>
           </ScrollView>
@@ -388,6 +435,8 @@ const styles = StyleSheet.create({
   closeBtn: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   headerTitle: { fontSize: 18, fontFamily: "Inter_700Bold" },
   scrollContent: { padding: 20, paddingBottom: 40, gap: 14 },
+  selectedBanner: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, borderRadius: 12, borderWidth: 1 },
+  selectedBannerText: { fontSize: 14, fontFamily: "Inter_700Bold" },
   sectionLabel: { fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "right", marginBottom: -6 },
   catRow: { paddingVertical: 4, gap: 8 },
   catChip: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, gap: 6 },
@@ -403,10 +452,18 @@ const styles = StyleSheet.create({
   svcPrice: { fontSize: 14, fontFamily: "Inter_700Bold" },
   nextBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 16, borderRadius: 16, gap: 10, marginTop: 4 },
   nextBtnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_700Bold" },
-  selectedServiceBanner: { flexDirection: "row", alignItems: "center", padding: 14, borderRadius: 14, borderWidth: 1, gap: 12 },
-  selectedServiceName: { fontSize: 15, fontFamily: "Inter_700Bold" },
-  selectedServicePrice: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  selectedServicesCard: { borderRadius: 16, borderWidth: 1, overflow: "hidden" },
+  selectedServicesHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 14, paddingBottom: 10 },
+  selectedServicesTitle: { fontSize: 14, fontFamily: "Inter_700Bold" },
   changeLink: { fontSize: 14, fontFamily: "Inter_700Bold" },
+  selectedSvcRow: { flexDirection: "row", alignItems: "center", padding: 12, gap: 10 },
+  selectedSvcInfo: { flex: 1, alignItems: "flex-end" },
+  selectedSvcName: { fontSize: 14, fontFamily: "Inter_700Bold" },
+  selectedSvcCat: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
+  selectedSvcPrice: { fontSize: 13, fontFamily: "Inter_700Bold", minWidth: 60, textAlign: "left" },
+  removeSvcBtn: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  addMoreBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 12, borderTopWidth: 1, gap: 8 },
+  addMoreText: { fontSize: 14, fontFamily: "Inter_700Bold" },
   fieldLabel: { fontSize: 14, fontFamily: "Inter_600SemiBold", textAlign: "right", marginBottom: -6 },
   inputWrap: { flexDirection: "row", alignItems: "center", borderRadius: 14, borderWidth: 1.5, paddingHorizontal: 14, paddingVertical: 12, gap: 10 },
   fieldInput: { flex: 1, fontSize: 15, fontFamily: "Inter_400Regular" },
@@ -439,8 +496,8 @@ const styles = StyleSheet.create({
   notesInput: { borderRadius: 14, borderWidth: 1, padding: 14, fontSize: 14, fontFamily: "Inter_400Regular", minHeight: 80 },
   privacyBox: { flexDirection: "row", alignItems: "center", padding: 12, borderRadius: 12, borderWidth: 1, gap: 10 },
   privacyText: { flex: 1, fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "right" },
-  submitBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 16, borderRadius: 16, gap: 10, shadowColor: "#c2185b", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
+  submitBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 16, borderRadius: 16, gap: 10 },
   submitBtnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_700Bold" },
-  afterSubmitNote: { flexDirection: "row", alignItems: "flex-start", gap: 8, justifyContent: "flex-end" },
-  afterSubmitText: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "right", flex: 1, lineHeight: 18 },
+  afterSubmitNote: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  afterSubmitText: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "right", lineHeight: 18 },
 });

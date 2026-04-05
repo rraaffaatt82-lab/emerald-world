@@ -3,7 +3,6 @@ import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import React, { useState } from "react";
 import {
-  Alert,
   Modal,
   Platform,
   ScrollView,
@@ -39,12 +38,20 @@ export default function ProviderProfileScreen() {
   const [showTopupModal, setShowTopupModal] = useState(false);
   const [topupAmount, setTopupAmount] = useState("");
   const [topupNote, setTopupNote] = useState("");
+  const [topupSuccess, setTopupSuccess] = useState(false);
+  const [topupError, setTopupError] = useState("");
   const [serviceFilter, setServiceFilter] = useState("");
   const [showAddSvcModal, setShowAddSvcModal] = useState(false);
   const [newSvcName, setNewSvcName] = useState("");
   const [newSvcDesc, setNewSvcDesc] = useState("");
   const [newSvcPrice, setNewSvcPrice] = useState("");
   const [newSvcDuration, setNewSvcDuration] = useState("");
+  const [addSvcError, setAddSvcError] = useState("");
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [editBio, setEditBio] = useState("");
+  const [editLocation, setEditLocation] = useState("");
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const provider = providers.find((p) => p.id === user?.id);
   const myJobs = getRequestsByProvider(user?.id || "");
@@ -66,21 +73,36 @@ export default function ProviderProfileScreen() {
   function handleTopupRequest() {
     const amount = parseFloat(topupAmount);
     if (isNaN(amount) || amount <= 0) {
-      Alert.alert("خطأ", "يرجى إدخال مبلغ صحيح");
+      setTopupError("يرجى إدخال مبلغ صحيح");
       return;
     }
     requestWalletTopup(user!.id, user!.name, amount, topupNote || undefined);
+    setTopupSuccess(true);
+    setTopupError("");
+  }
+
+  function handleCloseTopup() {
     setShowTopupModal(false);
     setTopupAmount("");
     setTopupNote("");
-    Alert.alert("تم!", "تم إرسال طلب شحن الرصيد للإدارة. ستُعلَم عند الموافقة.");
+    setTopupSuccess(false);
+    setTopupError("");
   }
 
-  function handleLogout() {
-    Alert.alert("تسجيل الخروج", "هل أنت متأكد؟", [
-      { text: "إلغاء", style: "cancel" },
-      { text: "خروج", style: "destructive", onPress: async () => { await logout(); router.replace("/login"); } },
-    ]);
+  async function handleLogoutConfirm() {
+    setShowLogoutConfirm(false);
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    await logout();
+    router.replace("/login");
+  }
+
+  function handleSaveProfile() {
+    if (!provider) return;
+    updateProvider(provider.id, {
+      bio: editBio.trim(),
+      location: { ...provider.location, address: editLocation.trim() || provider.location.address },
+    });
+    setShowEditProfile(false);
   }
 
   function handleToggleService(serviceId: string) {
@@ -96,7 +118,7 @@ export default function ProviderProfileScreen() {
     if (!newSvcName.trim() || !user) return;
     const price = parseFloat(newSvcPrice);
     if (isNaN(price) || price <= 0) {
-      Alert.alert("خطأ", "يرجى إدخال سعر صحيح");
+      setAddSvcError("يرجى إدخال سعر صحيح");
       return;
     }
     addCustomProviderService({
@@ -111,6 +133,7 @@ export default function ProviderProfileScreen() {
     setNewSvcDesc("");
     setNewSvcPrice("");
     setNewSvcDuration("");
+    setAddSvcError("");
   }
 
   const myCustomServices = customProviderServices.filter((s) => s.providerId === user?.id);
@@ -217,8 +240,24 @@ export default function ProviderProfileScreen() {
             </View>
           </View>
 
+          {provider?.bio ? (
+            <View style={[styles.bioCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[styles.bioTitle, { color: colors.foreground }]}>نبذة عني</Text>
+              <Text style={[styles.bioText, { color: colors.mutedForeground }]}>{provider.bio}</Text>
+            </View>
+          ) : null}
+
           <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[styles.infoTitle, { color: colors.foreground }]}>معلومات الحساب</Text>
+            <View style={styles.infoCardHeader}>
+              <TouchableOpacity
+                style={[styles.editProfileBtn, { backgroundColor: colors.primary + "15" }]}
+                onPress={() => { setEditBio(provider?.bio || ""); setEditLocation(provider?.location?.address || ""); setShowEditProfile(true); }}
+              >
+                <Feather name="edit-2" size={14} color={colors.primary} />
+                <Text style={[styles.editProfileBtnText, { color: colors.primary }]}>تعديل</Text>
+              </TouchableOpacity>
+              <Text style={[styles.infoTitle, { color: colors.foreground }]}>معلومات الحساب</Text>
+            </View>
             <InfoRow icon="phone" label="رقم الهاتف" value={provider?.phone || user?.phone || "—"} colors={colors} />
             <InfoRow icon="map-pin" label="الموقع" value={provider?.location.address || "—"} colors={colors} />
             <InfoRow icon="calendar" label="تاريخ الانضمام" value={provider?.joinedAt || "—"} colors={colors} />
@@ -226,7 +265,7 @@ export default function ProviderProfileScreen() {
             <InfoRow icon="gift" label="خدمات مجانية متبقية" value={String(provider?.freeServicesLeft || 0)} colors={colors} />
           </View>
 
-          <TouchableOpacity style={[styles.logoutBtn, { borderColor: colors.destructive }]} onPress={handleLogout}>
+          <TouchableOpacity style={[styles.logoutBtn, { borderColor: colors.destructive }]} onPress={() => setShowLogoutConfirm(true)}>
             <Feather name="log-out" size={18} color={colors.destructive} />
             <Text style={[styles.logoutText, { color: colors.destructive }]}>تسجيل الخروج</Text>
           </TouchableOpacity>
@@ -298,42 +337,41 @@ export default function ProviderProfileScreen() {
             <View style={[styles.emptyCustom, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <Feather name="plus-square" size={28} color={colors.mutedForeground} />
               <Text style={[styles.emptyCustomText, { color: colors.mutedForeground }]}>
-                أضافي خدماتك الخاصة مع وصف وسعر مخصص
+                أضيفي خدماتك الخاصة — ستخضع لمراجعة الإدارة قبل النشر
               </Text>
             </View>
           ) : (
-            myCustomServices.map((svc) => (
-              <View key={svc.id} style={[styles.customSvcRow, { backgroundColor: colors.card, borderColor: colors.primary + "30" }]}>
-                <TouchableOpacity
-                  style={[styles.deleteSvcBtn, { backgroundColor: colors.destructive + "15" }]}
-                  onPress={() => {
-                    Alert.alert("حذف الخدمة", `هل تريدين حذف "${svc.name}"؟`, [
-                      { text: "إلغاء", style: "cancel" },
-                      { text: "حذف", style: "destructive", onPress: () => deleteCustomProviderService(svc.id) },
-                    ]);
-                  }}
-                >
-                  <Feather name="trash-2" size={16} color={colors.destructive} />
-                </TouchableOpacity>
-                <View style={{ flex: 1, alignItems: "flex-end" }}>
-                  <View style={styles.customSvcNameRow}>
-                    <View style={[styles.customBadge, { backgroundColor: colors.accent + "20" }]}>
-                      <Text style={[styles.customBadgeText, { color: colors.accent }]}>مخصص</Text>
+            myCustomServices.map((svc) => {
+              const statusColor = svc.status === "approved" ? "#4caf50" : svc.status === "rejected" ? colors.destructive : "#ff9800";
+              const statusLabel = svc.status === "approved" ? "معتمدة ✓" : svc.status === "rejected" ? "مرفوضة" : "قيد المراجعة";
+              return (
+                <View key={svc.id} style={[styles.customSvcRow, { backgroundColor: colors.card, borderColor: svc.status === "approved" ? colors.primary + "30" : statusColor + "30" }]}>
+                  <TouchableOpacity
+                    style={[styles.deleteSvcBtn, { backgroundColor: colors.destructive + "15" }]}
+                    onPress={() => setDeleteConfirmId(svc.id)}
+                  >
+                    <Feather name="trash-2" size={16} color={colors.destructive} />
+                  </TouchableOpacity>
+                  <View style={{ flex: 1, alignItems: "flex-end" }}>
+                    <View style={styles.customSvcNameRow}>
+                      <View style={[styles.customBadge, { backgroundColor: statusColor + "20" }]}>
+                        <Text style={[styles.customBadgeText, { color: statusColor }]}>{statusLabel}</Text>
+                      </View>
+                      <Text style={[styles.customSvcName, { color: colors.foreground }]}>{svc.name}</Text>
                     </View>
-                    <Text style={[styles.customSvcName, { color: colors.foreground }]}>{svc.name}</Text>
-                  </View>
-                  {svc.description ? (
-                    <Text style={[styles.customSvcDesc, { color: colors.mutedForeground }]}>{svc.description}</Text>
-                  ) : null}
-                  <View style={styles.customSvcMeta}>
-                    <Text style={[styles.customSvcPrice, { color: colors.primary }]}>{svc.price} ر.س</Text>
-                    {svc.duration ? (
-                      <Text style={[styles.customSvcDur, { color: colors.mutedForeground }]}>{svc.duration} دقيقة</Text>
+                    {svc.description ? (
+                      <Text style={[styles.customSvcDesc, { color: colors.mutedForeground }]}>{svc.description}</Text>
                     ) : null}
+                    <View style={styles.customSvcMeta}>
+                      <Text style={[styles.customSvcPrice, { color: colors.primary }]}>{svc.price} ر.س</Text>
+                      {svc.duration ? (
+                        <Text style={[styles.customSvcDur, { color: colors.mutedForeground }]}>{svc.duration} دقيقة</Text>
+                      ) : null}
+                    </View>
                   </View>
                 </View>
-              </View>
-            ))
+              );
+            })
           )}
         </>
       )}
@@ -481,6 +519,9 @@ export default function ProviderProfileScreen() {
                 />
               </View>
             </View>
+            {addSvcError !== "" && (
+              <Text style={{ color: colors.destructive, fontSize: 12, textAlign: "right", fontFamily: "Inter_400Regular" }}>{addSvcError}</Text>
+            )}
             <TouchableOpacity
               style={[styles.topupSubmitBtn, { backgroundColor: colors.primary, opacity: newSvcName.trim() && newSvcPrice ? 1 : 0.5 }]}
               onPress={handleAddCustomSvc}
@@ -493,45 +534,146 @@ export default function ProviderProfileScreen() {
         </View>
       </Modal>
 
-      <Modal visible={showTopupModal} transparent animationType="slide" onRequestClose={() => setShowTopupModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modal, { backgroundColor: colors.card }]}>
-            <View style={styles.modalHeader}>
-              <TouchableOpacity onPress={() => setShowTopupModal(false)}>
-                <Feather name="x" size={22} color={colors.foreground} />
-              </TouchableOpacity>
-              <Text style={[styles.modalTitle, { color: colors.foreground }]}>طلب شحن رصيد</Text>
+      <Modal visible={showTopupModal} transparent animationType="slide" onRequestClose={handleCloseTopup}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={handleCloseTopup}>
+          <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+            <View style={[styles.modal, { backgroundColor: colors.card }]}>
+              <View style={styles.modalHeader}>
+                <TouchableOpacity onPress={handleCloseTopup}>
+                  <Feather name="x" size={22} color={colors.foreground} />
+                </TouchableOpacity>
+                <Text style={[styles.modalTitle, { color: colors.foreground }]}>طلب شحن رصيد</Text>
+              </View>
+              {topupSuccess ? (
+                <View style={{ alignItems: "center", gap: 16, paddingVertical: 20 }}>
+                  <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: "#4caf50" + "20", alignItems: "center", justifyContent: "center" }}>
+                    <Feather name="check-circle" size={32} color="#4caf50" />
+                  </View>
+                  <Text style={{ color: colors.foreground, fontSize: 18, fontFamily: "Inter_700Bold" }}>تم الإرسال!</Text>
+                  <Text style={{ color: colors.mutedForeground, fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center" }}>
+                    تم إرسال طلب شحن الرصيد للإدارة. ستُعلَم فور الموافقة.
+                  </Text>
+                  <TouchableOpacity style={[styles.topupSubmitBtn, { backgroundColor: colors.primary }]} onPress={handleCloseTopup}>
+                    <Text style={styles.topupSubmitText}>حسناً</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <>
+                  <Text style={[styles.modalDesc, { color: colors.mutedForeground }]}>
+                    سيتم مراجعة طلبك من قبل الإدارة وإشعارك فور الموافقة
+                  </Text>
+                  <Text style={[styles.fieldLabel, { color: colors.foreground }]}>المبلغ المطلوب (ر.س) *</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: topupError ? colors.destructive : colors.border }]}
+                    value={topupAmount}
+                    onChangeText={(t) => { setTopupAmount(t); setTopupError(""); }}
+                    keyboardType="numeric"
+                    placeholder="مثال: 500"
+                    placeholderTextColor={colors.mutedForeground}
+                    textAlign="right"
+                  />
+                  {topupError !== "" && (
+                    <Text style={{ color: colors.destructive, fontSize: 12, textAlign: "right", fontFamily: "Inter_400Regular" }}>{topupError}</Text>
+                  )}
+                  <Text style={[styles.fieldLabel, { color: colors.foreground }]}>ملاحظة (اختياري)</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+                    value={topupNote}
+                    onChangeText={setTopupNote}
+                    placeholder="تفاصيل إضافية..."
+                    placeholderTextColor={colors.mutedForeground}
+                    multiline
+                    numberOfLines={2}
+                    textAlign="right"
+                  />
+                  <TouchableOpacity style={[styles.topupSubmitBtn, { backgroundColor: colors.primary }]} onPress={handleTopupRequest}>
+                    <Feather name="send" size={18} color="#fff" />
+                    <Text style={styles.topupSubmitText}>إرسال الطلب</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
-            <Text style={[styles.modalDesc, { color: colors.mutedForeground }]}>
-              سيتم مراجعة طلبك من قبل الإدارة وإشعارك فور الموافقة
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal visible={showLogoutConfirm} transparent animationType="fade" onRequestClose={() => setShowLogoutConfirm(false)}>
+        <TouchableOpacity style={styles.confirmOverlay} activeOpacity={1} onPress={() => setShowLogoutConfirm(false)}>
+          <TouchableOpacity activeOpacity={1} style={[styles.confirmBox, { backgroundColor: colors.card }]} onPress={(e) => e.stopPropagation()}>
+            <Feather name="log-out" size={28} color={colors.destructive} style={{ alignSelf: "center" }} />
+            <Text style={[styles.confirmTitle, { color: colors.foreground }]}>تسجيل الخروج</Text>
+            <Text style={[styles.confirmMsg, { color: colors.mutedForeground }]}>هل أنت متأكدة من تسجيل الخروج؟</Text>
+            <View style={styles.confirmActions}>
+              <TouchableOpacity style={[styles.confirmCancel, { borderColor: colors.border }]} onPress={() => setShowLogoutConfirm(false)}>
+                <Text style={[styles.confirmCancelText, { color: colors.foreground }]}>إلغاء</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.confirmDelete, { backgroundColor: colors.destructive }]} onPress={handleLogoutConfirm}>
+                <Text style={styles.confirmDeleteText}>خروج</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal visible={showEditProfile} transparent animationType="slide" onRequestClose={() => setShowEditProfile(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowEditProfile(false)}>
+          <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+            <View style={[styles.modal, { backgroundColor: colors.card }]}>
+              <View style={styles.modalHeader}>
+                <TouchableOpacity onPress={() => setShowEditProfile(false)}>
+                  <Feather name="x" size={22} color={colors.foreground} />
+                </TouchableOpacity>
+                <Text style={[styles.modalTitle, { color: colors.foreground }]}>تعديل الملف الشخصي</Text>
+              </View>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>نبذة تعريفية</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border, minHeight: 80, textAlignVertical: "top" }]}
+                value={editBio}
+                onChangeText={setEditBio}
+                placeholder="اكتبي نبذة مختصرة عن خبرتك وتخصصاتك..."
+                placeholderTextColor={colors.mutedForeground}
+                multiline
+                numberOfLines={3}
+                textAlign="right"
+              />
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>العنوان / المنطقة</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+                value={editLocation}
+                onChangeText={setEditLocation}
+                placeholder="مثال: الرياض، حي النزهة"
+                placeholderTextColor={colors.mutedForeground}
+                textAlign="right"
+              />
+              <TouchableOpacity style={[styles.topupSubmitBtn, { backgroundColor: colors.primary }]} onPress={handleSaveProfile}>
+                <Feather name="save" size={18} color="#fff" />
+                <Text style={styles.topupSubmitText}>حفظ التغييرات</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal visible={!!deleteConfirmId} transparent animationType="fade" onRequestClose={() => setDeleteConfirmId(null)}>
+        <TouchableOpacity style={styles.confirmOverlay} activeOpacity={1} onPress={() => setDeleteConfirmId(null)}>
+          <TouchableOpacity activeOpacity={1} style={[styles.confirmBox, { backgroundColor: colors.card }]} onPress={(e) => e.stopPropagation()}>
+            <Text style={[styles.confirmTitle, { color: colors.foreground }]}>حذف الخدمة</Text>
+            <Text style={[styles.confirmMsg, { color: colors.mutedForeground }]}>
+              هل تريدين حذف هذه الخدمة المخصصة؟ لا يمكن التراجع.
             </Text>
-            <Text style={[styles.fieldLabel, { color: colors.foreground }]}>المبلغ المطلوب (ر.س) *</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
-              value={topupAmount}
-              onChangeText={setTopupAmount}
-              keyboardType="numeric"
-              placeholder="مثال: 500"
-              placeholderTextColor={colors.mutedForeground}
-              textAlign="right"
-            />
-            <Text style={[styles.fieldLabel, { color: colors.foreground }]}>ملاحظة (اختياري)</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
-              value={topupNote}
-              onChangeText={setTopupNote}
-              placeholder="تفاصيل إضافية..."
-              placeholderTextColor={colors.mutedForeground}
-              multiline
-              numberOfLines={2}
-              textAlign="right"
-            />
-            <TouchableOpacity style={[styles.topupSubmitBtn, { backgroundColor: colors.primary }]} onPress={handleTopupRequest}>
-              <Feather name="send" size={18} color="#fff" />
-              <Text style={styles.topupSubmitText}>إرسال الطلب</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+            <View style={styles.confirmActions}>
+              <TouchableOpacity style={[styles.confirmCancel, { borderColor: colors.border }]} onPress={() => setDeleteConfirmId(null)}>
+                <Text style={[styles.confirmCancelText, { color: colors.foreground }]}>إلغاء</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmDelete, { backgroundColor: colors.destructive }]}
+                onPress={() => { if (deleteConfirmId) deleteCustomProviderService(deleteConfirmId); setDeleteConfirmId(null); }}
+              >
+                <Text style={styles.confirmDeleteText}>حذف</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     </ScrollView>
   );
@@ -621,6 +763,21 @@ const styles = StyleSheet.create({
   input: { borderRadius: 12, borderWidth: 1, padding: 12, fontSize: 15, fontFamily: "Inter_400Regular" },
   topupSubmitBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 16, borderRadius: 14, gap: 10, marginTop: 4 },
   topupSubmitText: { color: "#fff", fontSize: 16, fontFamily: "Inter_700Bold" },
+  bioCard: { borderRadius: 14, borderWidth: 1, padding: 14, gap: 6 },
+  bioTitle: { fontSize: 14, fontFamily: "Inter_700Bold", textAlign: "right" },
+  bioText: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "right", lineHeight: 20 },
+  infoCardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
+  editProfileBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
+  editProfileBtnText: { fontSize: 13, fontFamily: "Inter_700Bold" },
+  confirmOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", padding: 20 },
+  confirmBox: { borderRadius: 20, padding: 24, width: "100%", gap: 12 },
+  confirmTitle: { fontSize: 18, fontFamily: "Inter_700Bold", textAlign: "center" },
+  confirmMsg: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 22 },
+  confirmActions: { flexDirection: "row", gap: 10, marginTop: 4 },
+  confirmCancel: { flex: 1, padding: 14, borderRadius: 12, borderWidth: 1, alignItems: "center" },
+  confirmCancelText: { fontSize: 14, fontFamily: "Inter_700Bold" },
+  confirmDelete: { flex: 1, padding: 14, borderRadius: 12, alignItems: "center" },
+  confirmDeleteText: { color: "#fff", fontSize: 14, fontFamily: "Inter_700Bold" },
   customSvcHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 8 },
   customSvcTitle: { fontSize: 15, fontFamily: "Inter_700Bold", textAlign: "right" },
   addSvcBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },

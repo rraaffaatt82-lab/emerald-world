@@ -3,7 +3,6 @@ import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import React, { useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -28,12 +27,14 @@ export default function RegisterScreen() {
   const [role, setRole] = useState<UserRole>("customer");
   const [providerType, setProviderType] = useState<ProviderType>("freelancer");
   const [showPass, setShowPass] = useState(false);
+  const [registerError, setRegisterError] = useState("");
 
   async function handleRegister() {
     if (!name || !phone || !password) {
-      Alert.alert("خطأ", "يرجى إدخال جميع البيانات المطلوبة");
+      setRegisterError("يرجى إدخال جميع البيانات المطلوبة");
       return;
     }
+    setRegisterError("");
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       await register({
@@ -45,7 +46,7 @@ export default function RegisterScreen() {
       });
       router.replace("/(tabs)");
     } catch {
-      Alert.alert("خطأ", "حدث خطأ أثناء إنشاء الحساب");
+      setRegisterError("حدث خطأ أثناء إنشاء الحساب");
     }
   }
 
@@ -187,6 +188,11 @@ export default function RegisterScreen() {
             </View>
           </View>
 
+          {registerError !== "" && (
+            <View style={{ backgroundColor: colors.destructive + "20", borderRadius: 10, padding: 10, marginBottom: 12 }}>
+              <Text style={{ color: colors.destructive, fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "center" }}>{registerError}</Text>
+            </View>
+          )}
           <TouchableOpacity
             style={[
               styles.registerBtn,

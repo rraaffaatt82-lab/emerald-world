@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import React, { useState } from "react";
-import { Alert, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useData } from "@/context/DataContext";
 import { useAuth } from "@/context/AuthContext";
@@ -14,6 +14,9 @@ export default function AdminSettingsScreen() {
   const [window, setWindow] = useState(String(systemSettings.offerWindowMinutes));
   const [commission, setCommission] = useState(String(systemSettings.commissionPercent));
   const [minOffer, setMinOffer] = useState(String(systemSettings.minOfferAmount));
+  const [saveError, setSaveError] = useState("");
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const webTopPad = Platform.OS === "web" ? 67 : 0;
   const webBottomPad = Platform.OS === "web" ? 34 : 0;
 
@@ -23,11 +26,14 @@ export default function AdminSettingsScreen() {
     const c = parseFloat(commission);
     const m = parseFloat(minOffer);
     if (isNaN(r) || isNaN(w) || isNaN(c) || isNaN(m)) {
-      Alert.alert("خطأ", "يرجى إدخال قيم صحيحة");
+      setSaveError("يرجى إدخال قيم صحيحة");
+      setSaveSuccess(false);
       return;
     }
     updateSystemSettings({ radiusKm: r, offerWindowMinutes: w, commissionPercent: c, minOfferAmount: m });
-    Alert.alert("تم", "تم حفظ الإعدادات بنجاح");
+    setSaveError("");
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 3000);
   }
 
   return (
@@ -99,23 +105,46 @@ export default function AdminSettingsScreen() {
         </View>
       </View>
 
+      {saveError !== "" && (
+        <View style={{ backgroundColor: "#f44336" + "20", borderRadius: 10, padding: 10, marginBottom: 8 }}>
+          <Text style={{ color: "#f44336", fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "center" }}>{saveError}</Text>
+        </View>
+      )}
+      {saveSuccess && (
+        <View style={{ backgroundColor: "#4caf50" + "20", borderRadius: 10, padding: 10, marginBottom: 8 }}>
+          <Text style={{ color: "#4caf50", fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "center" }}>✓ تم حفظ الإعدادات بنجاح</Text>
+        </View>
+      )}
+
       <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
         <Feather name="save" size={18} color="#000" />
         <Text style={styles.saveBtnText}>حفظ الإعدادات</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.logoutBtn}
-        onPress={() => {
-          Alert.alert("تسجيل الخروج", "تأكيد؟", [
-            { text: "إلغاء", style: "cancel" },
-            { text: "خروج", style: "destructive", onPress: async () => { await logout(); router.replace("/login"); } },
-          ]);
-        }}
-      >
+      <TouchableOpacity style={styles.logoutBtn} onPress={() => setShowLogoutConfirm(true)}>
         <Feather name="log-out" size={16} color="#f44336" />
         <Text style={styles.logoutBtnText}>تسجيل الخروج</Text>
       </TouchableOpacity>
+
+      <Modal visible={showLogoutConfirm} transparent animationType="fade" onRequestClose={() => setShowLogoutConfirm(false)}>
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmBox}>
+            <Text style={styles.confirmTitle}>تسجيل الخروج</Text>
+            <Text style={styles.confirmMsg}>هل أنت متأكد من تسجيل الخروج؟</Text>
+            <View style={styles.confirmActions}>
+              <TouchableOpacity style={styles.confirmCancel} onPress={() => setShowLogoutConfirm(false)}>
+                <Text style={styles.confirmCancelText}>إلغاء</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.confirmLogout}
+                onPress={async () => { setShowLogoutConfirm(false); await logout(); router.replace("/login"); }}
+              >
+                <Text style={styles.confirmLogoutText}>خروج</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -162,4 +191,13 @@ const styles = StyleSheet.create({
   saveBtnText: { color: "#000", fontSize: 16, fontFamily: "Inter_700Bold" },
   logoutBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 14, borderRadius: 14, borderWidth: 1, borderColor: "#f44336" + "50", gap: 10 },
   logoutBtnText: { color: "#f44336", fontSize: 15, fontFamily: "Inter_700Bold" },
+  confirmOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "center", padding: 24 },
+  confirmBox: { backgroundColor: "#1a1a2e", borderRadius: 20, padding: 24, gap: 14 },
+  confirmTitle: { color: "#fff", fontSize: 18, fontFamily: "Inter_700Bold", textAlign: "center" },
+  confirmMsg: { color: "#888", fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center" },
+  confirmActions: { flexDirection: "row", gap: 12 },
+  confirmCancel: { flex: 1, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: "#444", alignItems: "center" },
+  confirmCancelText: { color: "#888", fontSize: 14, fontFamily: "Inter_700Bold" },
+  confirmLogout: { flex: 1, padding: 14, borderRadius: 12, backgroundColor: "#f44336", alignItems: "center" },
+  confirmLogoutText: { color: "#fff", fontSize: 14, fontFamily: "Inter_700Bold" },
 });

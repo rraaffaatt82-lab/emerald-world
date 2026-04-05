@@ -2,11 +2,12 @@ import { Feather } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
 import {
-  Alert,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -24,6 +25,9 @@ export default function AdminProviderDetailScreen() {
     updateProvider, suspendProvider, approveWalletTopup,
   } = useData();
   const [tab, setTab] = useState<TabKey>("info");
+  const [showActivateConfirm, setShowActivateConfirm] = useState(false);
+  const [showSuspendModal, setShowSuspendModal] = useState(false);
+  const [suspendReason, setSuspendReason] = useState("");
   const webTopPad = Platform.OS === "web" ? 67 : 0;
   const webBottomPad = Platform.OS === "web" ? 34 : 0;
 
@@ -98,12 +102,7 @@ export default function AdminProviderDetailScreen() {
         {provider.status !== "approved" ? (
           <TouchableOpacity
             style={[styles.actionBtn, { backgroundColor: "#4caf50" }]}
-            onPress={() => {
-              Alert.alert("تفعيل الحساب", `تفعيل حساب ${provider.name}؟`, [
-                { text: "إلغاء", style: "cancel" },
-                { text: "تفعيل", onPress: () => updateProvider(provider.id, { status: "approved", isAvailable: true, suspensionReason: undefined }) },
-              ]);
-            }}
+            onPress={() => setShowActivateConfirm(true)}
           >
             <Feather name="check" size={14} color="#fff" />
             <Text style={styles.actionBtnText}>تفعيل</Text>
@@ -111,16 +110,7 @@ export default function AdminProviderDetailScreen() {
         ) : (
           <TouchableOpacity
             style={[styles.actionBtn, { backgroundColor: "#f44336" + "20", borderWidth: 1, borderColor: "#f44336" }]}
-            onPress={() => {
-              Alert.prompt ? Alert.prompt(
-                "سبب التعليق", "أدخل سبب تعليق الحساب:",
-                (reason) => reason && suspendProvider(provider.id, reason),
-                "plain-text"
-              ) : Alert.alert("تعليق", "تأكيد تعليق الحساب؟", [
-                { text: "إلغاء", style: "cancel" },
-                { text: "تعليق", style: "destructive", onPress: () => suspendProvider(provider.id, "تعليق من الإدارة") },
-              ]);
-            }}
+            onPress={() => { setSuspendReason(""); setShowSuspendModal(true); }}
           >
             <Feather name="pause-circle" size={14} color="#f44336" />
             <Text style={[styles.actionBtnText, { color: "#f44336" }]}>تعليق</Text>
@@ -253,6 +243,60 @@ export default function AdminProviderDetailScreen() {
           </View>
         )}
       </ScrollView>
+
+      <Modal visible={showActivateConfirm} transparent animationType="fade" onRequestClose={() => setShowActivateConfirm(false)}>
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmBox}>
+            <Feather name="check-circle" size={32} color="#4caf50" style={{ alignSelf: "center" }} />
+            <Text style={styles.confirmTitle}>تفعيل الحساب</Text>
+            <Text style={styles.confirmMsg}>تفعيل حساب {provider.name}؟ سيتمكن من استقبال الطلبات فوراً.</Text>
+            <View style={styles.confirmActions}>
+              <TouchableOpacity style={styles.confirmCancel} onPress={() => setShowActivateConfirm(false)}>
+                <Text style={styles.confirmCancelText}>إلغاء</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmOk, { backgroundColor: "#4caf50" }]}
+                onPress={() => { updateProvider(provider.id, { status: "approved", isAvailable: true, suspensionReason: undefined }); setShowActivateConfirm(false); }}
+              >
+                <Text style={styles.confirmOkText}>تفعيل</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showSuspendModal} transparent animationType="slide" onRequestClose={() => setShowSuspendModal(false)}>
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmBox}>
+            <Text style={styles.confirmTitle}>تعليق الحساب</Text>
+            <Text style={styles.confirmMsg}>يرجى إدخال سبب تعليق حساب {provider.name}</Text>
+            <TextInput
+              style={styles.suspendInput}
+              value={suspendReason}
+              onChangeText={setSuspendReason}
+              placeholder="سبب التعليق..."
+              placeholderTextColor="#555"
+              multiline
+              numberOfLines={2}
+              textAlign="right"
+            />
+            <View style={styles.confirmActions}>
+              <TouchableOpacity style={styles.confirmCancel} onPress={() => setShowSuspendModal(false)}>
+                <Text style={styles.confirmCancelText}>إلغاء</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmOk, { backgroundColor: "#f44336" }]}
+                onPress={() => {
+                  suspendProvider(provider.id, suspendReason.trim() || "تعليق من الإدارة");
+                  setShowSuspendModal(false);
+                }}
+              >
+                <Text style={styles.confirmOkText}>تعليق</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -344,4 +388,14 @@ const styles = StyleSheet.create({
   attType: { color: "#c8a951", fontSize: 12, fontFamily: "Inter_400Regular" },
   emptyState: { alignItems: "center", paddingVertical: 40, gap: 12 },
   emptyText: { color: "#666", fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center" },
+  confirmOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "center", padding: 24 },
+  confirmBox: { backgroundColor: "#1a1a2e", borderRadius: 20, padding: 24, gap: 14 },
+  confirmTitle: { color: "#fff", fontSize: 18, fontFamily: "Inter_700Bold", textAlign: "center" },
+  confirmMsg: { color: "#888", fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 22 },
+  confirmActions: { flexDirection: "row", gap: 12 },
+  confirmCancel: { flex: 1, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: "#444", alignItems: "center" },
+  confirmCancelText: { color: "#888", fontSize: 14, fontFamily: "Inter_700Bold" },
+  confirmOk: { flex: 1, padding: 14, borderRadius: 12, alignItems: "center" },
+  confirmOkText: { color: "#fff", fontSize: 14, fontFamily: "Inter_700Bold" },
+  suspendInput: { backgroundColor: "#0d0d1a", color: "#fff", borderRadius: 12, padding: 12, fontSize: 14, fontFamily: "Inter_400Regular", minHeight: 60, textAlignVertical: "top" },
 });

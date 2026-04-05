@@ -3,7 +3,6 @@ import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import React, { useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -32,20 +31,22 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [showDemo, setShowDemo] = useState(false);
+  const [loginError, setLoginError] = useState("");
 
   async function handleLogin() {
     if (!phone.trim()) {
-      Alert.alert("تنبيه", "يرجى إدخال رقم الهاتف");
+      setLoginError("يرجى إدخال رقم الهاتف");
       return;
     }
     if (!password.trim()) {
-      Alert.alert("تنبيه", "يرجى إدخال كلمة المرور");
+      setLoginError("يرجى إدخال كلمة المرور");
       return;
     }
+    setLoginError("");
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const result = await login(phone.trim(), password);
     if (!result.success) {
-      Alert.alert("خطأ في تسجيل الدخول", result.error || "بيانات غير صحيحة");
+      setLoginError(result.error || "بيانات غير صحيحة");
       return;
     }
     if (result.role === "admin") {
@@ -110,6 +111,11 @@ export default function LoginScreen() {
             </View>
           </View>
 
+          {loginError !== "" && (
+            <View style={{ backgroundColor: "#fce4ec", borderRadius: 10, padding: 10, marginBottom: 12 }}>
+              <Text style={{ color: "#c2185b", fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "center" }}>{loginError}</Text>
+            </View>
+          )}
           <TouchableOpacity
             style={[styles.loginBtn, { backgroundColor: colors.primary }, isLoading && { opacity: 0.7 }]}
             onPress={handleLogin}

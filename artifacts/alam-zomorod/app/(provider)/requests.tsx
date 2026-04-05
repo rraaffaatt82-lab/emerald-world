@@ -2,7 +2,6 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import React, { useState } from "react";
 import {
-  Alert,
   FlatList,
   KeyboardAvoidingView,
   Modal,
@@ -32,6 +31,7 @@ export default function ProviderRequestsScreen() {
   const [offerPrice, setOfferPrice] = useState("");
   const [offerEta, setOfferEta] = useState("20");
   const [offerNote, setOfferNote] = useState("");
+  const [offerError, setOfferError] = useState("");
   const webTopPad = Platform.OS === "web" ? 67 : 0;
   const webBottomPad = Platform.OS === "web" ? 34 : 0;
 
@@ -99,7 +99,7 @@ export default function ProviderRequestsScreen() {
     if (!offerModal || !user) return;
     const price = parseFloat(offerPrice);
     if (isNaN(price) || price < 30) {
-      Alert.alert("خطأ", "يرجى إدخال سعر صحيح (30 ريال كحد أدنى)");
+      setOfferError("يرجى إدخال سعر صحيح (30 ريال كحد أدنى)");
       return;
     }
     if (!provider) return;
@@ -120,6 +120,7 @@ export default function ProviderRequestsScreen() {
     setOfferPrice("");
     setOfferEta("20");
     setOfferNote("");
+    setOfferError("");
     setFilterTab("my_offers");
   }
 
@@ -291,11 +292,11 @@ export default function ProviderRequestsScreen() {
               </View>
 
               <Text style={[styles.fieldLabel, { color: colors.foreground }]}>سعر العرض (ريال)</Text>
-              <View style={[styles.priceInput, { borderColor: colors.border, backgroundColor: colors.muted }]}>
+              <View style={[styles.priceInput, { borderColor: offerError ? colors.destructive : colors.border, backgroundColor: colors.muted }]}>
                 <TextInput
                   style={[styles.priceText, { color: colors.foreground }]}
                   value={offerPrice}
-                  onChangeText={setOfferPrice}
+                  onChangeText={(t) => { setOfferPrice(t); setOfferError(""); }}
                   keyboardType="numeric"
                   placeholder="0"
                   placeholderTextColor={colors.mutedForeground}
@@ -303,6 +304,9 @@ export default function ProviderRequestsScreen() {
                 />
                 <Text style={[styles.currencyText, { color: colors.mutedForeground }]}>ر.س</Text>
               </View>
+              {offerError !== "" && (
+                <Text style={{ color: colors.destructive, fontSize: 12, textAlign: "right", fontFamily: "Inter_400Regular" }}>{offerError}</Text>
+              )}
 
               <Text style={[styles.fieldLabel, { color: colors.foreground }]}>وقت الوصول (دقيقة)</Text>
               <View style={styles.etaRow}>

@@ -2,9 +2,9 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import React, { useState } from "react";
 import {
-  Alert,
   FlatList,
   Linking,
+  Modal,
   Platform,
   StyleSheet,
   Text,
@@ -26,6 +26,8 @@ export default function ProviderActiveScreen() {
   const { user } = useAuth();
   const { getRequestsByProvider, startService, completeService } = useData();
   const [filter, setFilter] = useState<FilterTab>("all");
+  const [confirmStart, setConfirmStart] = useState<string | null>(null);
+  const [confirmComplete, setConfirmComplete] = useState<string | null>(null);
   const webTopPad = Platform.OS === "web" ? 67 : 0;
   const webBottomPad = Platform.OS === "web" ? 34 : 0;
 
@@ -53,29 +55,25 @@ export default function ProviderActiveScreen() {
   }
 
   function handleStart(id: string) {
-    Alert.alert("بدء الخدمة", "هل أنت في موقع العميل وجاهز للبدء؟", [
-      { text: "لا", style: "cancel" },
-      {
-        text: "نعم، ابدأ",
-        onPress: () => {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          startService(id);
-        },
-      },
-    ]);
+    setConfirmStart(id);
   }
 
   function handleComplete(id: string) {
-    Alert.alert("إنهاء الخدمة", "هل انتهيت من تقديم الخدمة للعميل؟", [
-      { text: "لا", style: "cancel" },
-      {
-        text: "نعم، انتهيت",
-        onPress: () => {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          completeService(id);
-        },
-      },
-    ]);
+    setConfirmComplete(id);
+  }
+
+  function doStart() {
+    if (!confirmStart) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    startService(confirmStart);
+    setConfirmStart(null);
+  }
+
+  function doComplete() {
+    if (!confirmComplete) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    completeService(confirmComplete);
+    setConfirmComplete(null);
   }
 
   return (
@@ -205,9 +203,56 @@ export default function ProviderActiveScreen() {
           );
         }}
       />
+      <Modal visible={!!confirmStart} transparent animationType="fade" onRequestClose={() => setConfirmStart(null)}>
+        <TouchableOpacity style={confirmStyles.overlay} activeOpacity={1} onPress={() => setConfirmStart(null)}>
+          <TouchableOpacity activeOpacity={1} style={[confirmStyles.box, { backgroundColor: colors.card }]} onPress={(e) => e.stopPropagation()}>
+            <Feather name="play-circle" size={32} color={colors.primary} style={{ alignSelf: "center" }} />
+            <Text style={[confirmStyles.title, { color: colors.foreground }]}>بدء الخدمة</Text>
+            <Text style={[confirmStyles.msg, { color: colors.mutedForeground }]}>هل أنت في موقع العميل وجاهزة للبدء؟</Text>
+            <View style={confirmStyles.actions}>
+              <TouchableOpacity style={[confirmStyles.cancel, { borderColor: colors.border }]} onPress={() => setConfirmStart(null)}>
+                <Text style={[confirmStyles.cancelText, { color: colors.foreground }]}>لا</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[confirmStyles.confirm, { backgroundColor: colors.primary }]} onPress={doStart}>
+                <Text style={confirmStyles.confirmText}>نعم، ابدئي</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal visible={!!confirmComplete} transparent animationType="fade" onRequestClose={() => setConfirmComplete(null)}>
+        <TouchableOpacity style={confirmStyles.overlay} activeOpacity={1} onPress={() => setConfirmComplete(null)}>
+          <TouchableOpacity activeOpacity={1} style={[confirmStyles.box, { backgroundColor: colors.card }]} onPress={(e) => e.stopPropagation()}>
+            <Feather name="check-circle" size={32} color={colors.success} style={{ alignSelf: "center" }} />
+            <Text style={[confirmStyles.title, { color: colors.foreground }]}>إنهاء الخدمة</Text>
+            <Text style={[confirmStyles.msg, { color: colors.mutedForeground }]}>هل انتهيت من تقديم الخدمة للعميل؟</Text>
+            <View style={confirmStyles.actions}>
+              <TouchableOpacity style={[confirmStyles.cancel, { borderColor: colors.border }]} onPress={() => setConfirmComplete(null)}>
+                <Text style={[confirmStyles.cancelText, { color: colors.foreground }]}>لا</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[confirmStyles.confirm, { backgroundColor: colors.success }]} onPress={doComplete}>
+                <Text style={confirmStyles.confirmText}>نعم، انتهيت</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
+
+const confirmStyles = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", padding: 24 },
+  box: { borderRadius: 20, padding: 24, width: "100%", gap: 12 },
+  title: { fontSize: 18, fontFamily: "Inter_700Bold", textAlign: "center" },
+  msg: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 22 },
+  actions: { flexDirection: "row", gap: 10, marginTop: 4 },
+  cancel: { flex: 1, padding: 14, borderRadius: 12, borderWidth: 1, alignItems: "center" },
+  cancelText: { fontSize: 14, fontFamily: "Inter_700Bold" },
+  confirm: { flex: 1, padding: 14, borderRadius: 12, alignItems: "center" },
+  confirmText: { color: "#fff", fontSize: 14, fontFamily: "Inter_700Bold" },
+});
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

@@ -3,7 +3,6 @@ import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
-  Alert,
   FlatList,
   Modal,
   Platform,
@@ -29,6 +28,9 @@ export default function AdminProvidersScreen() {
   const [showSearch, setShowSearch] = useState(false);
   const [suspendModal, setSuspendModal] = useState<{ id: string; name: string } | null>(null);
   const [suspendReason, setSuspendReason] = useState("");
+  const [suspendReasonError, setSuspendReasonError] = useState("");
+  const [approveModal, setApproveModal] = useState<{ id: string; name: string } | null>(null);
+  const [reactivateModal, setReactivateModal] = useState<{ id: string; name: string } | null>(null);
   const [showTopupRequests, setShowTopupRequests] = useState(false);
   const webTopPad = Platform.OS === "web" ? 67 : 0;
   const webBottomPad = Platform.OS === "web" ? 34 : 0;
@@ -49,40 +51,43 @@ export default function AdminProvidersScreen() {
   }
 
   function handleApprove(id: string, name: string) {
-    Alert.alert("الموافقة على المزود", `هل تريد الموافقة على ${name}؟`, [
-      { text: "إلغاء", style: "cancel" },
-      {
-        text: "موافقة",
-        onPress: () => {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          updateProvider(id, { status: "approved", isAvailable: true });
-        },
-      },
-    ]);
+    setApproveModal({ id, name });
+  }
+
+  function doApprove() {
+    if (!approveModal) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    updateProvider(approveModal.id, { status: "approved", isAvailable: true });
+    setApproveModal(null);
   }
 
   function openSuspendModal(id: string, name: string) {
     setSuspendModal({ id, name });
     setSuspendReason("");
+    setSuspendReasonError("");
   }
 
   function confirmSuspend() {
     if (!suspendModal) return;
     if (!suspendReason.trim()) {
-      Alert.alert("تنبيه", "يرجى إدخال سبب التعليق");
+      setSuspendReasonError("يرجى إدخال سبب التعليق");
       return;
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     suspendProvider(suspendModal.id, suspendReason.trim());
     setSuspendModal(null);
     setSuspendReason("");
+    setSuspendReasonError("");
   }
 
   function handleReactivate(id: string, name: string) {
-    Alert.alert("إعادة تفعيل", `هل تريد إعادة تفعيل حساب ${name}؟`, [
-      { text: "إلغاء", style: "cancel" },
-      { text: "تفعيل", onPress: () => updateProvider(id, { status: "approved", suspensionReason: undefined }) },
-    ]);
+    setReactivateModal({ id, name });
+  }
+
+  function doReactivate() {
+    if (!reactivateModal) return;
+    updateProvider(reactivateModal.id, { status: "approved", suspensionReason: undefined });
+    setReactivateModal(null);
   }
 
   const tabs: { key: FilterTab; label: string }[] = [
@@ -289,9 +294,9 @@ export default function AdminProvidersScreen() {
             <Text style={styles.suspendModalTitle}>تعليق حساب {suspendModal?.name}</Text>
             <Text style={styles.suspendModalDesc}>يرجى إدخال سبب التعليق — سيُبلَّغ المزود بهذا السبب</Text>
             <TextInput
-              style={styles.suspendReasonInput}
+              style={[styles.suspendReasonInput, suspendReasonError ? { borderColor: "#f44336", borderWidth: 1 } : {}]}
               value={suspendReason}
-              onChangeText={setSuspendReason}
+              onChangeText={(t) => { setSuspendReason(t); setSuspendReasonError(""); }}
               placeholder="مثال: انتهاك شروط الخدمة، شكاوى متعددة..."
               placeholderTextColor="#555"
               multiline
@@ -299,6 +304,9 @@ export default function AdminProvidersScreen() {
               textAlign="right"
               textAlignVertical="top"
             />
+            {suspendReasonError !== "" && (
+              <Text style={{ color: "#f44336", fontSize: 12, textAlign: "right", fontFamily: "Inter_400Regular" }}>{suspendReasonError}</Text>
+            )}
             <View style={styles.suspendActions}>
               <TouchableOpacity
                 style={[styles.suspendBtn, { borderColor: "#444", borderWidth: 1 }]}
@@ -352,6 +360,42 @@ export default function AdminProvidersScreen() {
             {pendingTopups.length === 0 && (
               <Text style={styles.emptyText}>لا توجد طلبات معلقة</Text>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={!!approveModal} transparent animationType="fade" onRequestClose={() => setApproveModal(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.suspendModal, { alignItems: "center", gap: 14 }]}>
+            <Feather name="check-circle" size={36} color="#4caf50" />
+            <Text style={[styles.suspendModalTitle, { textAlign: "center" }]}>موافقة على {approveModal?.name}</Text>
+            <Text style={[styles.suspendModalDesc, { textAlign: "center" }]}>سيُفعَّل الحساب ويتمكن المزود من استقبال الطلبات فوراً</Text>
+            <View style={styles.suspendActions}>
+              <TouchableOpacity style={[styles.suspendBtn, { borderColor: "#444", borderWidth: 1 }]} onPress={() => setApproveModal(null)}>
+                <Text style={[styles.suspendBtnText, { color: "#888" }]}>إلغاء</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.suspendBtn, { backgroundColor: "#4caf50" }]} onPress={doApprove}>
+                <Text style={[styles.suspendBtnText, { color: "#fff" }]}>موافقة</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={!!reactivateModal} transparent animationType="fade" onRequestClose={() => setReactivateModal(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.suspendModal, { alignItems: "center", gap: 14 }]}>
+            <Feather name="play-circle" size={36} color="#4caf50" />
+            <Text style={[styles.suspendModalTitle, { textAlign: "center" }]}>إعادة تفعيل {reactivateModal?.name}</Text>
+            <Text style={[styles.suspendModalDesc, { textAlign: "center" }]}>سيُرفع التعليق ويعود الحساب لحالة نشط</Text>
+            <View style={styles.suspendActions}>
+              <TouchableOpacity style={[styles.suspendBtn, { borderColor: "#444", borderWidth: 1 }]} onPress={() => setReactivateModal(null)}>
+                <Text style={[styles.suspendBtnText, { color: "#888" }]}>إلغاء</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.suspendBtn, { backgroundColor: "#4caf50" }]} onPress={doReactivate}>
+                <Text style={[styles.suspendBtnText, { color: "#fff" }]}>تفعيل</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
