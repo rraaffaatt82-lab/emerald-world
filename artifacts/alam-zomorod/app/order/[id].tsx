@@ -1,7 +1,10 @@
 import { Feather } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
+import * as Haptics from "expo-haptics";
 import React from "react";
 import {
+  Alert,
+  Linking,
   Platform,
   ScrollView,
   StyleSheet,
@@ -11,362 +14,334 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
-import { useAuth } from "@/context/AuthContext";
-import { useData } from "@/context/DataContext";
+import { useData, PROVIDERS_DATA } from "@/context/DataContext";
 import { STRINGS } from "@/constants/strings";
 import { Badge } from "@/components/ui/Badge";
 import { StarRating } from "@/components/ui/StarRating";
 
 const STATUS_STEPS = [
-  { key: "pending", label: "تم الإرسال" },
-  { key: "offers_received", label: "عروض مستلمة" },
-  { key: "accepted", label: "تم القبول" },
-  { key: "in_progress", label: "جارٍ التنفيذ" },
-  { key: "completed", label: "مكتمل" },
+  { key: "pending", label: "تم الإرسال", icon: "send" },
+  { key: "offers_received", label: "عروض مستلمة", icon: "inbox" },
+  { key: "accepted", label: "تم القبول", icon: "check-circle" },
+  { key: "in_progress", label: "جارٍ التنفيذ", icon: "activity" },
+  { key: "completed", label: "مكتمل", icon: "star" },
 ];
 
 function getStatusIndex(status: string) {
   return STATUS_STEPS.findIndex((s) => s.key === status);
 }
 
+function getInitials(name: string) {
+  return name.split(" ").map((w) => w[0]).join("").slice(0, 2);
+}
+
 export default function OrderDetailScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { requests, updateRequest } = useData();
+  const { requests, updateRequest, acceptOffer, cancelRequest } = useData();
   const order = requests.find((o) => o.id === id);
+  const webTopPad = Platform.OS === "web" ? 67 : 0;
 
   if (!order) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <TouchableOpacity
-          style={[styles.backBtnAlt, { paddingTop: insets.top + 10 }]}
-          onPress={() => router.back()}
-        >
+        <TouchableOpacity style={[styles.backBtnAlt, { paddingTop: insets.top + 10 }]} onPress={() => router.back()}>
           <Feather name="arrow-right" size={24} color={colors.foreground} />
         </TouchableOpacity>
         <View style={styles.center}>
-          <Text style={[styles.notFound, { color: colors.foreground }]}>
-            الطلب غير موجود
-          </Text>
+          <Text style={[styles.notFound, { color: colors.foreground }]}>الطلب غير موجود</Text>
         </View>
       </View>
     );
   }
 
   const currentStep = getStatusIndex(order.status);
-  const webTopPad = Platform.OS === "web" ? 67 : 0;
+  const pendingOffers = order.offers.filter((o) => o.status === "pending");
+  const acceptedOffer = order.offers.find((o) => o.status === "accepted");
+
+  function handleAcceptOffer(offerId: string, providerName: string) {
+    Alert.alert(
+      "قبول العرض",
+      `هل تريدين قبول عرض ${providerName}؟ سيتم مشاركة معلومات الاتصال مع بعضكما.`,
+      [
+        { text: "إلغاء", style: "cancel" },
+        {
+          text: "قبول",
+          onPress: () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            acceptOffer(order.id, offerId);
+          },
+        },
+      ]
+    );
+  }
+
+  function handleCancelRequest() {
+    Alert.alert("إلغاء الطلب", "هل أنت متأكدة؟ لا يمكن التراجع.", [
+      { text: "تراجع", style: "cancel" },
+      {
+        text: "إلغاء الطلب",
+        style: "destructive",
+        onPress: () => {
+          cancelRequest(order.id);
+          router.back();
+        },
+      },
+    ]);
+  }
 
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={[
         styles.content,
-        {
-          paddingTop: insets.top + webTopPad + 10,
-          paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 0) + 30,
-        },
+        { paddingTop: insets.top + webTopPad + 10, paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 0) + 30 },
       ]}
     >
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Feather name="arrow-right" size={24} color={colors.foreground} />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: colors.foreground }]}>
-          {STRINGS.orders.orderDetails}
-        </Text>
+        <Text style={[styles.title, { color: colors.foreground }]}>{STRINGS.orders.orderDetails}</Text>
       </View>
 
       <View style={[styles.serviceCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <View style={styles.serviceHeader}>
           <Badge
             label={
-              order.status === "cancelled"
-                ? STRINGS.orders.cancelled
-                : order.status === "completed"
-                ? STRINGS.orders.done
-                : order.status === "in_progress"
-                ? STRINGS.orders.inProgress
-                : order.status === "accepted"
-                ? STRINGS.orders.accepted
-                : order.status === "offers_received"
-                ? "عروض مستلمة"
-                : STRINGS.orders.pending
+              order.status === "cancelled" ? STRINGS.orders.cancelled :
+              order.status === "completed" ? STRINGS.orders.done :
+              order.status === "in_progress" ? STRINGS.orders.inProgress :
+              order.status === "accepted" ? STRINGS.orders.accepted :
+              order.status === "offers_received" ? "عروض مستلمة" :
+              STRINGS.orders.pending
             }
             variant={
-              order.status === "completed"
-                ? "success"
-                : order.status === "cancelled"
-                ? "error"
-                : "warning"
+              order.status === "completed" ? "success" :
+              order.status === "cancelled" ? "error" :
+              order.status === "offers_received" ? "accent" : "warning"
             }
           />
-          <Text style={[styles.serviceName, { color: colors.foreground }]}>
-            {order.serviceName}
-          </Text>
+          <Text style={[styles.serviceName, { color: colors.foreground }]}>{order.serviceName}</Text>
         </View>
-        <Text style={[styles.category, { color: colors.mutedForeground }]}>
-          {order.categoryName}
-        </Text>
+        <Text style={[styles.category, { color: colors.mutedForeground }]}>{order.categoryName}</Text>
         {order.price && (
-          <Text style={[styles.price, { color: colors.primary }]}>
-            {order.price} {STRINGS.common.sar}
-          </Text>
+          <Text style={[styles.price, { color: colors.primary }]}>{order.price} {STRINGS.common.sar}</Text>
         )}
+        <View style={styles.addressRow}>
+          <Feather name="map-pin" size={14} color={colors.mutedForeground} />
+          <Text style={[styles.addressText, { color: colors.mutedForeground }]}> {order.address}</Text>
+        </View>
       </View>
 
       {order.status !== "cancelled" && (
         <View style={[styles.stepsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.stepsTitle, { color: colors.foreground }]}>
-            حالة الطلب
-          </Text>
-          {STATUS_STEPS.map((step, i) => {
-            const isDone = i <= currentStep;
-            const isActive = i === currentStep;
-            return (
-              <View key={step.key} style={styles.stepRow}>
-                <View style={styles.stepLineArea}>
-                  <View
-                    style={[
-                      styles.stepCircle,
-                      {
-                        backgroundColor: isDone ? colors.primary : colors.border,
-                        borderColor: isActive ? colors.primary : "transparent",
-                      },
-                    ]}
-                  >
-                    {isDone && (
-                      <Feather name="check" size={12} color="#fff" />
-                    )}
+          <Text style={[styles.stepsTitle, { color: colors.foreground }]}>حالة الطلب</Text>
+          <View style={styles.stepsRow}>
+            {STATUS_STEPS.map((step, i) => {
+              const isDone = i <= currentStep;
+              const isActive = i === currentStep;
+              return (
+                <View key={step.key} style={styles.stepItem}>
+                  <View style={[styles.stepCircle, {
+                    backgroundColor: isDone ? colors.primary : colors.border,
+                    borderWidth: isActive ? 2 : 0,
+                    borderColor: colors.primary,
+                  }]}>
+                    <Feather name={step.icon as any} size={13} color={isDone ? "#fff" : colors.mutedForeground} />
                   </View>
                   {i < STATUS_STEPS.length - 1 && (
-                    <View
-                      style={[
-                        styles.stepLine,
-                        {
-                          backgroundColor: i < currentStep ? colors.primary : colors.border,
-                        },
-                      ]}
-                    />
+                    <View style={[styles.stepConnector, { backgroundColor: i < currentStep ? colors.primary : colors.border }]} />
                   )}
+                  <Text style={[styles.stepLabel, { color: isDone ? colors.primary : colors.mutedForeground, fontFamily: isActive ? "Inter_700Bold" : "Inter_400Regular" }]}>
+                    {step.label}
+                  </Text>
                 </View>
-                <Text
-                  style={[
-                    styles.stepLabel,
-                    {
-                      color: isDone ? colors.foreground : colors.mutedForeground,
-                      fontFamily: isActive ? "Inter_700Bold" : "Inter_400Regular",
-                    },
-                  ]}
+              );
+            })}
+          </View>
+        </View>
+      )}
+
+      {order.status === "offers_received" && pendingOffers.length > 0 && (
+        <View style={styles.offersSection}>
+          <View style={styles.offersSectionHeader}>
+            <View style={[styles.offersCountBadge, { backgroundColor: colors.primary }]}>
+              <Text style={styles.offersCountText}>{pendingOffers.length}</Text>
+            </View>
+            <Text style={[styles.offersSectionTitle, { color: colors.foreground }]}>العروض الواردة</Text>
+          </View>
+          <Text style={[styles.offersHint, { color: colors.mutedForeground }]}>
+            اختاري العرض المناسب — معلومات الاتصال تظهر بعد القبول
+          </Text>
+          {pendingOffers.map((offer) => {
+            const providerData = PROVIDERS_DATA.find((p) => p.id === offer.providerId);
+            const avatarColor = providerData?.avatarColor || colors.primary;
+            return (
+              <View key={offer.id} style={[styles.offerCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <View style={styles.offerTop}>
+                  <View style={styles.offerPriceArea}>
+                    <Text style={[styles.offerPrice, { color: colors.primary }]}>{offer.price} ر.س</Text>
+                    <View style={styles.etaRow}>
+                      <Feather name="clock" size={13} color={colors.mutedForeground} />
+                      <Text style={[styles.etaText, { color: colors.mutedForeground }]}> {offer.eta} دقيقة</Text>
+                    </View>
+                  </View>
+                  <View style={styles.offerProviderRow}>
+                    <View style={styles.offerProviderInfo}>
+                      <View style={styles.nameVerified}>
+                        {offer.isVerified && (
+                          <View style={[styles.verifiedIcon, { backgroundColor: colors.success }]}>
+                            <Feather name="check" size={10} color="#fff" />
+                          </View>
+                        )}
+                        <Text style={[styles.offerProviderName, { color: colors.foreground }]}>
+                          {offer.providerName}
+                        </Text>
+                      </View>
+                      <View style={styles.providerMeta}>
+                        <StarRating rating={offer.providerRating} size={13} />
+                        <Text style={[styles.providerMetaText, { color: colors.mutedForeground }]}>
+                          · {offer.providerTotalOrders} طلب · {offer.providerType === "salon" ? "صالون" : "فريلانسر"}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={[styles.offerAvatar, { backgroundColor: avatarColor }]}>
+                      <Text style={styles.offerAvatarText}>{getInitials(offer.providerName)}</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {offer.note && (
+                  <View style={[styles.offerNote, { backgroundColor: colors.muted }]}>
+                    <Text style={[styles.offerNoteText, { color: colors.mutedForeground }]}>
+                      💬 {offer.note}
+                    </Text>
+                  </View>
+                )}
+
+                <View style={[styles.privacyHint, { backgroundColor: colors.accent + "10" }]}>
+                  <Feather name="eye-off" size={13} color={colors.accent} />
+                  <Text style={[styles.privacyHintText, { color: colors.accent }]}>
+                    رقم الهاتف مخفي — يظهر بعد القبول
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.acceptBtn, { backgroundColor: colors.primary }]}
+                  onPress={() => handleAcceptOffer(offer.id, offer.providerName)}
                 >
-                  {step.label}
-                </Text>
+                  <Feather name="check" size={16} color="#fff" />
+                  <Text style={styles.acceptBtnText}>قبول هذا العرض</Text>
+                </TouchableOpacity>
               </View>
             );
           })}
         </View>
       )}
 
-      <View style={[styles.detailsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Text style={[styles.detailsTitle, { color: colors.foreground }]}>
-          تفاصيل الطلب
-        </Text>
-        <DetailRow
-          icon="map-pin"
-          label="العنوان"
-          value={order.address}
-          colors={colors}
-        />
-        <DetailRow
-          icon="calendar"
-          label="الموعد"
-          value={new Date(order.scheduledAt).toLocaleDateString("ar-SA")}
-          colors={colors}
-        />
-        {order.providerName && (
-          <DetailRow
-            icon="user"
-            label="مزود الخدمة"
-            value={order.providerName}
-            colors={colors}
-          />
-        )}
-        {order.notes && (
-          <DetailRow
-            icon="file-text"
-            label="ملاحظات"
-            value={order.notes}
-            colors={colors}
-          />
-        )}
-      </View>
+      {order.status === "accepted" && acceptedOffer && order.contactRevealed && (
+        <View style={[styles.contactCard, { backgroundColor: colors.success + "10", borderColor: colors.success + "30" }]}>
+          <Feather name="unlock" size={18} color={colors.success} />
+          <View style={{ flex: 1, alignItems: "flex-end" }}>
+            <Text style={[styles.contactTitle, { color: colors.success }]}>تم قبول العرض — معلومات الاتصال</Text>
+            <Text style={[styles.contactName, { color: colors.foreground }]}>{order.providerName}</Text>
+            {order.providerPhone && (
+              <TouchableOpacity onPress={() => Linking.openURL(`tel:${order.providerPhone}`)}>
+                <Text style={[styles.contactPhone, { color: colors.primary }]}>
+                  📞 {order.providerPhone}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      )}
 
       {order.status === "completed" && order.rating && (
         <View style={[styles.ratingCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.detailsTitle, { color: colors.foreground }]}>
-            تقييمك
-          </Text>
+          <Text style={[styles.detailsTitle, { color: colors.foreground }]}>تقييمك</Text>
           <StarRating rating={order.rating} size={24} />
-          {order.review && (
-            <Text style={[styles.reviewText, { color: colors.mutedForeground }]}>
-              "{order.review}"
-            </Text>
-          )}
+          {order.review && <Text style={[styles.reviewText, { color: colors.mutedForeground }]}>"{order.review}"</Text>}
+        </View>
+      )}
+
+      {order.notes && (
+        <View style={[styles.notesCard, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+          <Text style={[styles.detailsTitle, { color: colors.foreground }]}>ملاحظاتك</Text>
+          <Text style={[styles.notesText, { color: colors.mutedForeground }]}>{order.notes}</Text>
         </View>
       )}
 
       {["pending", "offers_received"].includes(order.status) && (
-        <TouchableOpacity
-          style={[styles.cancelBtn, { borderColor: colors.destructive }]}
-          onPress={() => updateRequest(order.id, { status: "cancelled" })}
-        >
-          <Text style={[styles.cancelBtnText, { color: colors.destructive }]}>
-            {STRINGS.request.cancel}
-          </Text>
+        <TouchableOpacity style={[styles.cancelBtn, { borderColor: colors.destructive }]} onPress={handleCancelRequest}>
+          <Feather name="x" size={16} color={colors.destructive} />
+          <Text style={[styles.cancelBtnText, { color: colors.destructive }]}>{STRINGS.request.cancel}</Text>
         </TouchableOpacity>
       )}
     </ScrollView>
   );
 }
 
-function DetailRow({ icon, label, value, colors }: any) {
-  return (
-    <View style={styles.detailRow}>
-      <View style={styles.detailLeft}>
-        <Text style={[styles.detailValue, { color: colors.foreground }]}>
-          {value}
-        </Text>
-        <Text style={[styles.detailLabel, { color: colors.mutedForeground }]}>
-          {label}
-        </Text>
-      </View>
-      <Feather name={icon} size={18} color={colors.primary} />
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { paddingHorizontal: 20, gap: 16 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 4,
-  },
+  content: { paddingHorizontal: 20, gap: 14 },
+  header: { flexDirection: "row", alignItems: "center", marginBottom: 4 },
   backBtn: { padding: 4, marginEnd: 12 },
   backBtnAlt: { padding: 16 },
   title: { fontSize: 20, fontFamily: "Inter_700Bold" },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   notFound: { fontSize: 16, fontFamily: "Inter_400Regular" },
-  serviceCard: {
-    borderRadius: 16,
-    padding: 18,
-    borderWidth: 1,
-    gap: 6,
-  },
-  serviceHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  serviceName: {
-    fontSize: 18,
-    fontFamily: "Inter_700Bold",
-    textAlign: "right",
-  },
-  category: {
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-    textAlign: "right",
-  },
-  price: {
-    fontSize: 18,
-    fontFamily: "Inter_700Bold",
-    textAlign: "right",
-    marginTop: 4,
-  },
-  stepsCard: {
-    borderRadius: 16,
-    padding: 18,
-    borderWidth: 1,
-    gap: 0,
-  },
-  stepsTitle: {
-    fontSize: 16,
-    fontFamily: "Inter_700Bold",
-    textAlign: "right",
-    marginBottom: 16,
-  },
-  stepRow: {
-    flexDirection: "row-reverse",
-    alignItems: "flex-start",
-    gap: 12,
-    justifyContent: "flex-start",
-  },
-  stepLineArea: {
-    alignItems: "center",
-    width: 24,
-  },
-  stepCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-  },
-  stepLine: {
-    width: 2,
-    height: 28,
-  },
-  stepLabel: {
-    fontSize: 14,
-    paddingTop: 4,
-    flex: 1,
-    textAlign: "right",
-  },
-  detailsCard: {
-    borderRadius: 16,
-    padding: 18,
-    borderWidth: 1,
-    gap: 4,
-  },
-  detailsTitle: {
-    fontSize: 16,
-    fontFamily: "Inter_700Bold",
-    textAlign: "right",
-    marginBottom: 12,
-  },
-  detailRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 10,
-  },
-  detailLeft: { alignItems: "flex-end", flex: 1, marginEnd: 12 },
-  detailLabel: { fontSize: 12, fontFamily: "Inter_400Regular" },
-  detailValue: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
-  ratingCard: {
-    borderRadius: 16,
-    padding: 18,
-    borderWidth: 1,
-    gap: 10,
-    alignItems: "flex-end",
-  },
-  reviewText: {
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-    fontStyle: "italic",
-    textAlign: "right",
-  },
-  cancelBtn: {
-    borderWidth: 1.5,
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  cancelBtnText: {
-    fontSize: 15,
-    fontFamily: "Inter_700Bold",
-  },
+  serviceCard: { borderRadius: 18, padding: 18, borderWidth: 1, gap: 6 },
+  serviceHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  serviceName: { fontSize: 18, fontFamily: "Inter_700Bold", textAlign: "right" },
+  category: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "right" },
+  price: { fontSize: 20, fontFamily: "Inter_700Bold", textAlign: "right" },
+  addressRow: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end" },
+  addressText: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  stepsCard: { borderRadius: 18, padding: 18, borderWidth: 1, gap: 16 },
+  stepsTitle: { fontSize: 15, fontFamily: "Inter_700Bold", textAlign: "right" },
+  stepsRow: { flexDirection: "row", justifyContent: "space-between" },
+  stepItem: { alignItems: "center", flex: 1 },
+  stepCircle: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
+  stepConnector: { position: "absolute", top: 17, left: "60%", right: "-60%", height: 2 },
+  stepLabel: { fontSize: 10, textAlign: "center", marginTop: 6, lineHeight: 14 },
+  offersSection: { gap: 12 },
+  offersSectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 10 },
+  offersSectionTitle: { fontSize: 17, fontFamily: "Inter_700Bold" },
+  offersCountBadge: { width: 26, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center" },
+  offersCountText: { color: "#fff", fontSize: 13, fontFamily: "Inter_700Bold" },
+  offersHint: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "right" },
+  offerCard: { borderRadius: 18, borderWidth: 1, overflow: "hidden" },
+  offerTop: { padding: 14, gap: 12 },
+  offerPriceArea: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  offerPrice: { fontSize: 24, fontFamily: "Inter_700Bold" },
+  etaRow: { flexDirection: "row", alignItems: "center" },
+  etaText: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  offerProviderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  offerProviderInfo: { flex: 1, alignItems: "flex-end", gap: 4 },
+  nameVerified: { flexDirection: "row", alignItems: "center", gap: 6 },
+  verifiedIcon: { width: 18, height: 18, borderRadius: 9, alignItems: "center", justifyContent: "center" },
+  offerProviderName: { fontSize: 16, fontFamily: "Inter_700Bold" },
+  providerMeta: { flexDirection: "row", alignItems: "center", gap: 4 },
+  providerMetaText: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  offerAvatar: { width: 50, height: 50, borderRadius: 25, alignItems: "center", justifyContent: "center" },
+  offerAvatarText: { color: "#fff", fontSize: 18, fontFamily: "Inter_700Bold" },
+  offerNote: { marginHorizontal: 14, borderRadius: 12, padding: 10 },
+  offerNoteText: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "right" },
+  privacyHint: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 10, gap: 8 },
+  privacyHintText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  acceptBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 14, margin: 14, marginTop: 0, borderRadius: 14, gap: 8 },
+  acceptBtnText: { color: "#fff", fontSize: 15, fontFamily: "Inter_700Bold" },
+  contactCard: { flexDirection: "row", alignItems: "center", padding: 16, borderRadius: 18, borderWidth: 1, gap: 12 },
+  contactTitle: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  contactName: { fontSize: 16, fontFamily: "Inter_700Bold" },
+  contactPhone: { fontSize: 15, fontFamily: "Inter_700Bold", marginTop: 4 },
+  ratingCard: { borderRadius: 18, padding: 18, borderWidth: 1, gap: 12, alignItems: "center" },
+  detailsTitle: { fontSize: 15, fontFamily: "Inter_700Bold", textAlign: "right" },
+  reviewText: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", fontStyle: "italic" },
+  notesCard: { borderRadius: 14, padding: 14, borderWidth: 1, gap: 8 },
+  notesText: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "right", lineHeight: 22 },
+  cancelBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 14, borderRadius: 14, borderWidth: 1.5, gap: 8 },
+  cancelBtnText: { fontSize: 15, fontFamily: "Inter_700Bold" },
 });

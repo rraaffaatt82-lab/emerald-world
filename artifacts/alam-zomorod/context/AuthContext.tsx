@@ -53,7 +53,7 @@ const MOCK_USERS: User[] = [
     role: "customer",
     rating: 4.8,
     totalOrders: 23,
-    walletBalance: 0,
+    walletBalance: 150,
     isVerified: true,
     location: { lat: 24.7136, lng: 46.6753, address: "الرياض، حي النزهة" },
   },
@@ -70,21 +70,9 @@ const MOCK_USERS: User[] = [
     location: { lat: 24.72, lng: 46.68, address: "الرياض، حي الملك فهد" },
   },
   {
-    id: "p5",
-    name: "ريم بيوتي",
-    phone: "3",
-    role: "provider",
-    providerType: "freelancer",
-    rating: 0,
-    totalOrders: 0,
-    walletBalance: 0,
-    isVerified: false,
-    location: { lat: 24.718, lng: 46.671, address: "الرياض، حي الياسمين" },
-  },
-  {
     id: "admin1",
     name: "مدير النظام",
-    phone: "4",
+    phone: "3",
     role: "admin",
     isVerified: true,
   },
@@ -94,7 +82,6 @@ const MOCK_PASSWORDS: Record<string, string> = {
   "1": "1234",
   "2": "1234",
   "3": "1234",
-  "4": "1234",
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -113,14 +100,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const login = useCallback(async (phone: string, password: string) => {
+    if (!phone.trim() || !password.trim()) {
+      return { success: false, error: "يرجى إدخال رقم الهاتف وكلمة المرور" };
+    }
     setIsLoading(true);
     try {
-      await new Promise((r) => setTimeout(r, 800));
-      const found = MOCK_USERS.find((u) => u.phone === phone);
+      await new Promise((r) => setTimeout(r, 700));
+      const found = MOCK_USERS.find((u) => u.phone === phone.trim());
       if (!found) {
         return { success: false, error: "رقم الهاتف غير مسجل" };
       }
-      const expectedPass = MOCK_PASSWORDS[phone];
+      const expectedPass = MOCK_PASSWORDS[phone.trim()];
       if (expectedPass && password !== expectedPass) {
         return { success: false, error: "كلمة المرور غير صحيحة" };
       }

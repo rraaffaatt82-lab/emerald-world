@@ -28,6 +28,7 @@ export interface Provider {
   id: string;
   name: string;
   type: "salon" | "freelancer";
+  avatarColor?: string;
   rating: number;
   reviewsCount: number;
   totalOrders: number;
@@ -166,7 +167,7 @@ export const SERVICES: Service[] = [
 
 export const PROVIDERS_DATA: Provider[] = [
   {
-    id: "p1", name: "نور الجمال", type: "freelancer",
+    id: "p1", name: "نور الجمال", type: "freelancer", avatarColor: "#e91e63",
     rating: 4.9, reviewsCount: 152, totalOrders: 234, distance: 1.2,
     isAvailable: true, location: { lat: 24.72, lng: 46.68, address: "الرياض، حي الملك فهد" },
     services: ["s1", "s2", "s3", "s4"], bio: "متخصصة في تصفيف وصبغ الشعر مع خبرة 8 سنوات",
@@ -174,7 +175,7 @@ export const PROVIDERS_DATA: Provider[] = [
     idVerified: true, status: "approved", joinedAt: "2024-01-15", commission: 15, freeServicesLeft: 0,
   },
   {
-    id: "p2", name: "صالون لمسة", type: "salon",
+    id: "p2", name: "صالون لمسة", type: "salon", avatarColor: "#9c27b0",
     rating: 4.7, reviewsCount: 89, totalOrders: 456, distance: 2.5,
     isAvailable: true, location: { lat: 24.71, lng: 46.67, address: "الرياض، حي العليا" },
     services: ["s5", "s6", "s7", "s8", "s9"], bio: "صالون متخصص في المكياج والأظافر للمناسبات",
@@ -182,7 +183,7 @@ export const PROVIDERS_DATA: Provider[] = [
     idVerified: true, status: "approved", joinedAt: "2023-09-10", commission: 15, freeServicesLeft: 2,
   },
   {
-    id: "p3", name: "هناء الجمالية", type: "freelancer",
+    id: "p3", name: "هناء الجمالية", type: "freelancer", avatarColor: "#f06292",
     rating: 4.6, reviewsCount: 67, totalOrders: 123, distance: 3.1,
     isAvailable: true, location: { lat: 24.73, lng: 46.69, address: "الرياض، حي الروضة" },
     services: ["s10", "s11", "s12"], bio: "خبيرة عناية بالبشرة وفن الحناء",
@@ -190,7 +191,7 @@ export const PROVIDERS_DATA: Provider[] = [
     idVerified: false, status: "pending", joinedAt: "2024-12-01", commission: 15, freeServicesLeft: 5,
   },
   {
-    id: "p4", name: "أميرة ستايل", type: "freelancer",
+    id: "p4", name: "أميرة ستايل", type: "freelancer", avatarColor: "#ab47bc",
     rating: 4.8, reviewsCount: 201, totalOrders: 312, distance: 0.8,
     isAvailable: false, location: { lat: 24.715, lng: 46.672, address: "الرياض، حي النزهة" },
     services: ["s1", "s2", "s5", "s6"], bio: "مصففة شعر ومتخصصة في المكياج للعرائس",
@@ -198,7 +199,7 @@ export const PROVIDERS_DATA: Provider[] = [
     idVerified: true, status: "approved", joinedAt: "2023-06-20", commission: 15, freeServicesLeft: 0,
   },
   {
-    id: "p5", name: "ريم بيوتي", type: "freelancer",
+    id: "p5", name: "ريم بيوتي", type: "freelancer", avatarColor: "#ec407a",
     rating: 0, reviewsCount: 0, totalOrders: 0, distance: 1.5,
     isAvailable: false, location: { lat: 24.718, lng: 46.671, address: "الرياض، حي الياسمين" },
     services: ["s8", "s9", "s11"], bio: "متخصصة في الأظافر والحواجب، جديدة في المنصة",
@@ -206,6 +207,8 @@ export const PROVIDERS_DATA: Provider[] = [
     idVerified: false, status: "pending", joinedAt: "2026-04-01", commission: 15, freeServicesLeft: 5,
   },
 ];
+
+export const PROVIDERS = PROVIDERS_DATA;
 
 const MOCK_REQUESTS: ServiceRequest[] = [
   {
@@ -220,10 +223,24 @@ const MOCK_REQUESTS: ServiceRequest[] = [
   {
     id: "r2", customerId: "1", customerName: "سارة أحمد",
     serviceId: "s6", serviceName: "مكياج مناسبات", categoryName: "المكياج",
-    status: "pending", price: 250, address: "الرياض، حي النزهة",
+    status: "offers_received", price: 250, address: "الرياض، حي النزهة",
     scheduledAt: "2026-04-06T14:00:00",
     contactRevealed: false, createdAt: "2026-04-05T18:00:00",
-    offers: [], radiusKm: 10,
+    radiusKm: 10,
+    offers: [
+      {
+        id: "of1", requestId: "r2", providerId: "p2", providerName: "صالون لمسة",
+        providerRating: 4.7, providerTotalOrders: 456, providerType: "salon", isVerified: true,
+        price: 230, eta: 20, note: "لدينا أفضل المكياجات للمناسبات وفريق محترف",
+        status: "pending", submittedAt: "2026-04-05T18:30:00",
+      },
+      {
+        id: "of2", requestId: "r2", providerId: "p3", providerName: "هناء الجمالية",
+        providerRating: 4.6, providerTotalOrders: 123, providerType: "freelancer", isVerified: true,
+        price: 200, eta: 30, note: "سأكون لديك في نصف ساعة",
+        status: "pending", submittedAt: "2026-04-05T18:45:00",
+      },
+    ],
   },
 ];
 
