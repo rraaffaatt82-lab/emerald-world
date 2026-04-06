@@ -277,6 +277,16 @@ export default function OrderDetailScreen() {
         </View>
       )}
 
+      {["accepted", "in_progress"].includes(order.status) && acceptedOffer && (
+        <TouchableOpacity
+          style={[styles.chatBtn, { backgroundColor: colors.primary }]}
+          onPress={() => router.push({ pathname: "/chat/[requestId]", params: { requestId: order.id } })}
+        >
+          <Feather name="message-circle" size={20} color="#fff" />
+          <Text style={styles.chatBtnText}>محادثة مع {order.providerName || "المزودة"}</Text>
+        </TouchableOpacity>
+      )}
+
       {order.status === "completed" && order.rating && (
         <View style={[styles.ratingCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.detailsTitle, { color: colors.foreground }]}>تقييمك</Text>
@@ -405,6 +415,8 @@ const styles = StyleSheet.create({
   notesText: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "right", lineHeight: 22 },
   cancelBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 14, borderRadius: 14, borderWidth: 1.5, gap: 8 },
   cancelBtnText: { fontSize: 15, fontFamily: "Inter_700Bold" },
+  chatBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 16, borderRadius: 14, gap: 10 },
+  chatBtnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_700Bold" },
   confirmOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", padding: 24 },
   confirmBox: { borderRadius: 20, padding: 24, width: "100%", gap: 12 },
   confirmTitle: { fontSize: 18, fontFamily: "Inter_700Bold", textAlign: "center" },

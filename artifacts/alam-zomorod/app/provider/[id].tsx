@@ -2,6 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React from "react";
 import {
+  Image,
   Platform,
   ScrollView,
   StyleSheet,
@@ -11,7 +12,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
-import { useData, PROVIDERS, SERVICES, CATEGORIES } from "@/context/DataContext";
+import { useData, SERVICES, CATEGORIES } from "@/context/DataContext";
 import { STRINGS } from "@/constants/strings";
 import { StarRating } from "@/components/ui/StarRating";
 import { Badge } from "@/components/ui/Badge";
@@ -21,8 +22,8 @@ export default function ProviderDetailScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { addToFavorites, favorites } = useData();
-  const provider = PROVIDERS.find((p) => p.id === id);
+  const { providers, addToFavorites, favorites } = useData();
+  const provider = providers.find((p) => p.id === id);
 
   if (!provider) {
     return (
@@ -76,7 +77,15 @@ export default function ProviderDetailScreen() {
 
         <View style={styles.heroContent}>
           <View style={styles.heroAvatar}>
-            <Feather name="user" size={40} color={colors.primary} />
+            {(provider as any).photoUri ? (
+              <Image
+                source={{ uri: (provider as any).photoUri }}
+                style={{ width: 80, height: 80, borderRadius: 40 }}
+                resizeMode="cover"
+              />
+            ) : (
+              <Feather name="user" size={40} color={colors.primary} />
+            )}
           </View>
           <Text style={styles.heroName}>{provider.name}</Text>
           <View style={styles.heroBadgeRow}>
