@@ -65,7 +65,7 @@ function ClassicTabLayout({ unread }: { unread: number }) {
           elevation: 0,
           ...(isWeb ? { height: 84 } : {}),
         },
-        tabBarLabelStyle: { fontFamily: "Inter_600SemiBold", fontSize: 10 },
+        tabBarLabelStyle: { fontFamily: "Inter_600SemiBold", fontSize: 12 },
         tabBarBackground: () =>
           isIOS ? (
             <BlurView intensity={100} tint={isDark ? "dark" : "light"} style={StyleSheet.absoluteFill} />

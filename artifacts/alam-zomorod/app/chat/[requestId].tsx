@@ -17,25 +17,39 @@ import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/context/AuthContext";
 import { useData } from "@/context/DataContext";
 
+const ARABIC_NUMS = ["صفر", "واحد", "اثنين", "اثنان", "ثلاثة", "أربعة", "اربعة", "خمسة", "ستة", "سبعة", "ثمانية", "تسعة", "عشرة"];
+
+function containsPhonePattern(text: string): boolean {
+  if (/\d{4,}/.test(text)) return true;
+  const escaped = ARABIC_NUMS.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const wordPat = new RegExp(`(${escaped.join("|")})\\s+(${escaped.join("|")})\\s+(${escaped.join("|")})\\s+(${escaped.join("|")})`);
+  if (wordPat.test(text)) return true;
+  if (/(\b\d\b\s*){4,}/.test(text)) return true;
+  return false;
+}
+
 export default function ChatScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { requests, getChatMessages, sendMessage, markChatRead } = useData();
-  const { requestId } = useLocalSearchParams<{ requestId: string }>();
+  const params = useLocalSearchParams<{ requestId: string; chatKey?: string; partnerName?: string }>();
+  const requestId = params.requestId;
+  const chatKey = params.chatKey || requestId;
   const [text, setText] = useState("");
+  const [blocked, setBlocked] = useState(false);
   const flatRef = useRef<FlatList>(null);
   const isWeb = Platform.OS === "web";
   const webTopPad = isWeb ? 67 : 0;
 
   const request = requests.find((r) => r.id === requestId);
-  const messages = getChatMessages(requestId || "");
+  const messages = getChatMessages(chatKey || "");
 
   const isCustomer = user?.role === "customer";
-  const partnerName = isCustomer ? request?.providerName : request?.customerName;
+  const partnerName = params.partnerName || (isCustomer ? request?.providerName : request?.customerName);
 
   useEffect(() => {
-    if (requestId && user?.id) markChatRead(requestId, user.id);
+    if (chatKey && user?.id) markChatRead(chatKey, user.id);
   }, [messages.length]);
 
   useEffect(() => {
@@ -45,10 +59,16 @@ export default function ChatScreen() {
   }, [messages.length]);
 
   function handleSend() {
-    if (!text.trim() || !user || !requestId) return;
+    if (!text.trim() || !user || !chatKey) return;
+    if (containsPhonePattern(text.trim())) {
+      setBlocked(true);
+      setTimeout(() => setBlocked(false), 3000);
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    sendMessage(requestId, user.id, user.name, user.role as "customer" | "provider", text.trim());
+    sendMessage(chatKey, user.id, user.name, user.role as "customer" | "provider", text.trim());
     setText("");
+    setBlocked(false);
   }
 
   function formatTime(iso: string) {
@@ -117,16 +137,25 @@ export default function ChatScreen() {
           paddingBottom: insets.bottom + (isWeb ? 34 : 8),
         },
       ]}>
-        <TextInput
-          style={[styles.input, { backgroundColor: colors.background, color: colors.foreground, borderColor: colors.border }]}
-          placeholder="اكتبي رسالتك..."
-          placeholderTextColor={colors.mutedForeground}
-          value={text}
-          onChangeText={setText}
-          multiline
-          textAlign="right"
-          onSubmitEditing={handleSend}
-        />
+        <View style={{ flex: 1, gap: 4 }}>
+          {blocked && (
+            <View style={{ backgroundColor: "#f44336" + "15", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: "#f44336" + "40" }}>
+              <Text style={{ color: "#f44336", fontSize: 12, fontFamily: "Inter_600SemiBold", textAlign: "right" }}>
+                ⚠️ لا يمكن مشاركة أرقام الهاتف في المحادثة
+              </Text>
+            </View>
+          )}
+          <TextInput
+            style={[styles.input, { backgroundColor: colors.background, color: colors.foreground, borderColor: blocked ? "#f44336" : colors.border }]}
+            placeholder="اكتبي رسالتك..."
+            placeholderTextColor={colors.mutedForeground}
+            value={text}
+            onChangeText={(v) => { setText(v); if (blocked) setBlocked(false); }}
+            multiline
+            textAlign="right"
+            onSubmitEditing={handleSend}
+          />
+        </View>
         <TouchableOpacity
           style={[styles.sendBtn, { backgroundColor: text.trim() ? colors.primary : colors.muted }]}
           onPress={handleSend}
@@ -144,21 +173,21 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingBottom: 14, gap: 12, borderBottomWidth: 1 },
   backBtn: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
   headerInfo: { flex: 1, alignItems: "flex-end" },
-  headerName: { fontSize: 16, fontFamily: "Inter_700Bold" },
-  headerSub: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  headerName: { fontSize: 18, fontFamily: "Inter_700Bold" },
+  headerSub: { fontSize: 14, fontFamily: "Inter_400Regular" },
   onlineDot: { width: 10, height: 10, borderRadius: 5 },
   list: { padding: 16, gap: 10 },
   emptyChat: { alignItems: "center", marginTop: 80, gap: 12 },
-  emptyChatText: { fontSize: 15, fontFamily: "Inter_400Regular", textAlign: "center" },
+  emptyChatText: { fontSize: 16, fontFamily: "Inter_400Regular", textAlign: "center" },
   msgRow: { flexDirection: "row", alignItems: "flex-end", gap: 8, marginVertical: 3 },
   msgRowRight: { flexDirection: "row-reverse" },
   msgRowLeft: {},
-  msgAvatar: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  msgAvatarText: { fontSize: 12, fontFamily: "Inter_700Bold" },
-  bubble: { maxWidth: "75%", paddingHorizontal: 14, paddingVertical: 9, borderRadius: 18, gap: 4 },
-  bubbleText: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 20 },
-  bubbleTime: { fontSize: 10, fontFamily: "Inter_400Regular", textAlign: "left" },
+  msgAvatar: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
+  msgAvatarText: { fontSize: 14, fontFamily: "Inter_700Bold" },
+  bubble: { maxWidth: "78%", paddingHorizontal: 16, paddingVertical: 11, borderRadius: 20, gap: 4 },
+  bubbleText: { fontSize: 16, fontFamily: "Inter_400Regular", lineHeight: 24 },
+  bubbleTime: { fontSize: 11, fontFamily: "Inter_400Regular", textAlign: "left" },
   inputBar: { flexDirection: "row", alignItems: "flex-end", gap: 10, paddingHorizontal: 14, paddingTop: 10, borderTopWidth: 1 },
-  input: { flex: 1, borderRadius: 22, borderWidth: 1, paddingHorizontal: 16, paddingVertical: 10, fontSize: 14, fontFamily: "Inter_400Regular", maxHeight: 100 },
-  sendBtn: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  input: { flex: 1, borderRadius: 24, borderWidth: 1, paddingHorizontal: 18, paddingVertical: 12, fontSize: 16, fontFamily: "Inter_400Regular", maxHeight: 120 },
+  sendBtn: { width: 50, height: 50, borderRadius: 25, alignItems: "center", justifyContent: "center" },
 });

@@ -314,7 +314,7 @@ export default function ProviderProfileScreen() {
             style={[styles.tabBtn, tab === t.key && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
             onPress={() => setTab(t.key)}
           >
-            <Feather name={t.icon as any} size={14} color={tab === t.key ? colors.primary : colors.mutedForeground} />
+            <Feather name={t.icon as any} size={17} color={tab === t.key ? colors.primary : colors.mutedForeground} />
             <Text style={[styles.tabBtnText, { color: tab === t.key ? colors.primary : colors.mutedForeground, fontFamily: tab === t.key ? "Inter_700Bold" : "Inter_400Regular" }]}>
               {t.label}
             </Text>
@@ -1289,8 +1289,8 @@ const styles = StyleSheet.create({
   suspensionTitle: { fontSize: 14, fontFamily: "Inter_700Bold" },
   suspensionReason: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "right", lineHeight: 20 },
   tabRow: { flexDirection: "row", borderBottomWidth: 1, marginHorizontal: -20, paddingHorizontal: 10 },
-  tabBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingVertical: 12, paddingHorizontal: 4 },
-  tabBtnText: { fontSize: 11 },
+  tabBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 13, paddingHorizontal: 4 },
+  tabBtnText: { fontSize: 13 },
   availabilityCard: { borderRadius: 16, padding: 16, borderWidth: 1 },
   availabilityRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   availLabel: { fontSize: 15, fontFamily: "Inter_700Bold", textAlign: "right" },

@@ -247,13 +247,29 @@ export default function OrderDetailScreen() {
                   </Text>
                 </View>
 
-                <TouchableOpacity
-                  style={[styles.acceptBtn, { backgroundColor: colors.primary }]}
-                  onPress={() => handleAcceptOffer(offer.id, offer.providerName)}
-                >
-                  <Feather name="check" size={16} color="#fff" />
-                  <Text style={styles.acceptBtnText}>قبول هذا العرض</Text>
-                </TouchableOpacity>
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  <TouchableOpacity
+                    style={[styles.chatOfferBtn, { borderColor: colors.primary, backgroundColor: colors.primary + "10" }]}
+                    onPress={() => router.push({
+                      pathname: "/chat/[requestId]",
+                      params: {
+                        requestId: order.id,
+                        chatKey: `${order.id}_${offer.providerId}`,
+                        partnerName: offer.providerFirstName || offer.providerName.split(" ")[0],
+                      }
+                    })}
+                  >
+                    <Feather name="message-circle" size={16} color={colors.primary} />
+                    <Text style={[styles.chatOfferBtnText, { color: colors.primary }]}>دردشة</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.acceptBtn, { backgroundColor: colors.primary, flex: 1 }]}
+                    onPress={() => handleAcceptOffer(offer.id, offer.providerName)}
+                  >
+                    <Feather name="check" size={16} color="#fff" />
+                    <Text style={styles.acceptBtnText}>قبول هذا العرض</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             );
           })}
@@ -417,6 +433,8 @@ const styles = StyleSheet.create({
   cancelBtnText: { fontSize: 15, fontFamily: "Inter_700Bold" },
   chatBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 16, borderRadius: 14, gap: 10 },
   chatBtnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_700Bold" },
+  chatOfferBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1.5, gap: 6 },
+  chatOfferBtnText: { fontSize: 14, fontFamily: "Inter_700Bold" },
   confirmOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", padding: 24 },
   confirmBox: { borderRadius: 20, padding: 24, width: "100%", gap: 12 },
   confirmTitle: { fontSize: 18, fontFamily: "Inter_700Bold", textAlign: "center" },
