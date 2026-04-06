@@ -28,6 +28,10 @@ function NativeTabLayout({ unread }: { unread: number }) {
         <Icon sf={{ default: "list.clipboard", selected: "list.clipboard.fill" }} />
         <Label>{STRINGS.tabs.orders}</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="map">
+        <Icon sf={{ default: "map", selected: "map.fill" }} />
+        <Label>الخريطة</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="notifications">
         <Icon sf={{ default: "bell", selected: "bell.fill" }} />
         <Label>الإشعارات</Label>
@@ -89,6 +93,13 @@ function ClassicTabLayout({ unread }: { unread: number }) {
         options={{
           title: STRINGS.tabs.orders,
           tabBarIcon: ({ color }) => isIOS ? <SymbolView name="list.clipboard" tintColor={color} size={24} /> : <Feather name="clipboard" size={22} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="map"
+        options={{
+          title: "الخريطة",
+          tabBarIcon: ({ color }) => isIOS ? <SymbolView name="map" tintColor={color} size={24} /> : <Feather name="map-pin" size={22} color={color} />,
         }}
       />
       <Tabs.Screen

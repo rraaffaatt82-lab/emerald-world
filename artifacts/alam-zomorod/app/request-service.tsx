@@ -39,7 +39,7 @@ export default function RequestServiceScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ serviceId?: string }>();
   const { user } = useAuth();
-  const { addRequest, validateCoupon, updateCoupon } = useData();
+  const { addRequest, validateCoupon, updateCoupon, systemSettings } = useData();
   const [step, setStep] = useState<Step>(params.serviceId ? "details" : "select-service");
   const [selectedServices, setSelectedServices] = useState<string[]>(params.serviceId ? [params.serviceId] : []);
   const [selectedCat, setSelectedCat] = useState(
@@ -55,6 +55,7 @@ export default function RequestServiceScreen() {
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [couponError, setCouponError] = useState("");
+  const [isUrgent, setIsUrgent] = useState(false);
 
   async function detectLocation() {
     setDetectingLocation(true);
@@ -137,9 +138,11 @@ export default function RequestServiceScreen() {
         scheduledAt,
         scheduledLater: !scheduleNow,
         notes: notes.trim() || undefined,
-        price: Math.max(0, svc.basePrice - svcDiscount),
+        price: Math.max(0, svc.basePrice - svcDiscount + (isUrgent ? systemSettings.urgentFeeAmount : 0)),
         radiusKm: 10,
         couponCode: appliedCoupon?.code || undefined,
+        isUrgent,
+        urgentFee: isUrgent ? systemSettings.urgentFeeAmount : undefined,
       });
     });
     setSubmitting(false);
@@ -360,6 +363,21 @@ export default function RequestServiceScreen() {
               </View>
             )}
 
+            <TouchableOpacity
+              style={[styles.urgentToggle, { backgroundColor: isUrgent ? "#ff5722" + "15" : colors.muted, borderColor: isUrgent ? "#ff5722" : colors.border }]}
+              onPress={() => setIsUrgent((v) => !v)}
+            >
+              <View style={styles.urgentRight}>
+                <Text style={[styles.urgentLabel, { color: isUrgent ? "#ff5722" : colors.foreground }]}>⚡ طلب عاجل</Text>
+                <Text style={[styles.urgentDesc, { color: colors.mutedForeground }]}>
+                  {isUrgent ? `سيُضاف ${systemSettings.urgentFeeAmount} د.أ رسوم أولوية — يُرسَل الطلب للمتاحات فوراً` : "يضمن وصول مزودة خدمة في أقل وقت ممكن"}
+                </Text>
+              </View>
+              <View style={[styles.urgentToggleBtn, { backgroundColor: isUrgent ? "#ff5722" : colors.border }]}>
+                <View style={[styles.urgentToggleKnob, { transform: [{ translateX: isUrgent ? 16 : 0 }] }]} />
+              </View>
+            </TouchableOpacity>
+
             <Text style={[styles.fieldLabel, { color: colors.foreground }]}>كود الخصم (اختياري)</Text>
             <View style={styles.couponRow}>
               <TouchableOpacity
@@ -411,6 +429,12 @@ export default function RequestServiceScreen() {
                   <Text style={[styles.priceLabel, { color: colors.mutedForeground }]}>{svc.name}</Text>
                 </View>
               ))}
+              {isUrgent && (
+                <View style={styles.priceRow}>
+                  <Text style={[styles.priceValue, { color: "#ff5722" }]}>+ {systemSettings.urgentFeeAmount} د.أ</Text>
+                  <Text style={[styles.priceLabel, { color: "#ff5722" }]}>⚡ رسوم أولوية عاجل</Text>
+                </View>
+              )}
               {appliedCoupon && (
                 <View style={styles.priceRow}>
                   <Text style={[styles.priceValue, { color: colors.destructive }]}>- {discountAmount} د.أ</Text>
@@ -419,7 +443,7 @@ export default function RequestServiceScreen() {
               )}
               <View style={[styles.priceDivider, { backgroundColor: colors.border }]} />
               <View style={styles.priceRow}>
-                <Text style={[styles.priceFinal, { color: colors.primary }]}>{finalPrice} د.أ</Text>
+                <Text style={[styles.priceFinal, { color: colors.primary }]}>{finalPrice + (isUrgent ? systemSettings.urgentFeeAmount : 0)} د.أ</Text>
                 <Text style={[styles.priceFinalLabel, { color: colors.foreground }]}>الإجمالي</Text>
               </View>
             </View>
@@ -509,6 +533,12 @@ const styles = StyleSheet.create({
   hourChipText: { fontSize: 14, fontFamily: "Inter_700Bold" },
   selectedDateDisplay: { flexDirection: "row", alignItems: "center", gap: 8, padding: 10, borderRadius: 12, borderWidth: 1, justifyContent: "center" },
   selectedDateText: { fontSize: 14, fontFamily: "Inter_700Bold" },
+  urgentToggle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderRadius: 14, borderWidth: 1.5, padding: 14, gap: 12 },
+  urgentRight: { flex: 1, alignItems: "flex-end", gap: 3 },
+  urgentLabel: { fontSize: 15, fontFamily: "Inter_700Bold" },
+  urgentDesc: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "right" },
+  urgentToggleBtn: { width: 36, height: 20, borderRadius: 10, padding: 2 },
+  urgentToggleKnob: { width: 16, height: 16, borderRadius: 8, backgroundColor: "#fff" },
   couponRow: { flexDirection: "row", gap: 10, alignItems: "center" },
   couponInputWrap: { flex: 1, flexDirection: "row", alignItems: "center", borderRadius: 12, borderWidth: 1.5, paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
   couponInput: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular" },

@@ -1,5 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { router } from "expo-router";
 import React, { useState } from "react";
 import {
   FlatList,
@@ -162,14 +163,24 @@ export default function ProviderActiveScreen() {
                       <Text style={[styles.clientAddr, { color: colors.mutedForeground }]}> {item.address}</Text>
                     </View>
                   </View>
-                  {item.contactRevealed && item.customerPhone && (
-                    <TouchableOpacity
-                      style={[styles.callBtn, { backgroundColor: colors.success }]}
-                      onPress={() => handleCall(item.customerPhone)}
-                    >
-                      <Feather name="phone" size={18} color="#fff" />
-                    </TouchableOpacity>
-                  )}
+                  <View style={{ flexDirection: "row", gap: 8 }}>
+                    {item.contactRevealed && item.customerPhone && (
+                      <TouchableOpacity
+                        style={[styles.callBtn, { backgroundColor: colors.success }]}
+                        onPress={() => handleCall(item.customerPhone)}
+                      >
+                        <Feather name="phone" size={18} color="#fff" />
+                      </TouchableOpacity>
+                    )}
+                    {item.contactRevealed && (
+                      <TouchableOpacity
+                        style={[styles.callBtn, { backgroundColor: colors.primary }]}
+                        onPress={() => router.push(`/chat/${item.id}`)}
+                      >
+                        <Feather name="message-circle" size={18} color="#fff" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
               </View>
 

@@ -196,7 +196,14 @@ export default function ProviderRequestsScreen() {
                   <Feather name={(cat?.icon || "scissors") as any} size={20} color={cat?.color || colors.primary} />
                 </View>
                 <View style={styles.cardInfo}>
-                  <Text style={[styles.cardServiceName, { color: colors.foreground }]}>{item.serviceName}</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>
+                    {item.isUrgent && (
+                      <View style={{ backgroundColor: "#ff572220", borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 }}>
+                        <Text style={{ fontSize: 11, fontFamily: "Inter_700Bold", color: "#ff5722" }}>⚡ عاجل</Text>
+                      </View>
+                    )}
+                    <Text style={[styles.cardServiceName, { color: colors.foreground }]}>{item.serviceName}</Text>
+                  </View>
                   <Text style={[styles.cardCat, { color: colors.mutedForeground }]}>{item.categoryName}</Text>
                   <View style={[styles.locationTimeBadge, { backgroundColor: colors.primary + "10", borderColor: colors.primary + "30" }]}>
                     <View style={styles.cardMeta}>

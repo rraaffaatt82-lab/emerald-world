@@ -25,7 +25,7 @@ export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user, logout, updateUser } = useAuth();
-  const { favorites, removeFromFavorites, providers } = useData();
+  const { favorites, removeFromFavorites, providers, getLoyaltyPoints, loyaltyTransactions, systemSettings, redeemLoyaltyPoints } = useData();
   const [activeModal, setActiveModal] = useState<ActiveModal>("none");
   const [editName, setEditName] = useState(user?.name || "");
   const [newPhone, setNewPhone] = useState("");
@@ -123,6 +123,53 @@ export default function ProfileScreen() {
             </View>
           </View>
         </View>
+
+        {user?.role === "customer" && (() => {
+          const pts = getLoyaltyPoints(user.id);
+          const value = Math.floor(pts / systemSettings.loyaltyPointsValue) * 10;
+          const myHistory = loyaltyTransactions.filter((t) => t.customerId === user.id).slice(0, 3);
+          return (
+            <View style={[styles.loyaltyCard, { backgroundColor: colors.card, borderColor: colors.primary + "30" }]}>
+              <View style={styles.loyaltyHeader}>
+                <View style={styles.loyaltyLeft}>
+                  <Feather name="award" size={22} color={colors.primary} />
+                  <Text style={[styles.loyaltyTitle, { color: colors.foreground }]}>نقاط المكافآت</Text>
+                </View>
+                <View style={[styles.loyaltyBadge, { backgroundColor: colors.primary }]}>
+                  <Text style={styles.loyaltyPoints}>{pts}</Text>
+                  <Text style={styles.loyaltyPtsLabel}>نقطة</Text>
+                </View>
+              </View>
+              <View style={[styles.loyaltyProgress, { backgroundColor: colors.muted }]}>
+                <View style={[styles.loyaltyBar, { backgroundColor: colors.primary, width: `${Math.min((pts % systemSettings.loyaltyPointsValue) / systemSettings.loyaltyPointsValue * 100, 100)}%` }]} />
+              </View>
+              <Text style={[styles.loyaltyHint, { color: colors.mutedForeground }]}>
+                {systemSettings.loyaltyPointsValue - (pts % systemSettings.loyaltyPointsValue)} نقطة إضافية للحصول على خصم 10 د.أ
+              </Text>
+              {myHistory.length > 0 && (
+                <View style={{ gap: 4, marginTop: 4 }}>
+                  {myHistory.map((t) => (
+                    <View key={t.id} style={styles.loyaltyRow}>
+                      <Text style={[styles.loyaltyRowPts, { color: t.type === "earn" ? "#4caf50" : "#f44336" }]}>
+                        {t.type === "earn" ? "+" : "-"}{t.points}
+                      </Text>
+                      <Text style={[styles.loyaltyRowDesc, { color: colors.mutedForeground }]} numberOfLines={1}>{t.description}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+              {value >= 10 && (
+                <TouchableOpacity
+                  style={[styles.redeemBtn, { backgroundColor: "#4caf50" }]}
+                  onPress={() => redeemLoyaltyPoints(user.id, systemSettings.loyaltyPointsValue, `تحويل ${systemSettings.loyaltyPointsValue} نقطة إلى خصم 10 د.أ`)}
+                >
+                  <Feather name="gift" size={14} color="#fff" />
+                  <Text style={styles.redeemBtnText}>استبدلي {systemSettings.loyaltyPointsValue} نقطة بـ 10 د.أ</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          );
+        })()}
 
         <View style={[styles.menuCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           {menuItems.map((item, i) => (
@@ -454,6 +501,21 @@ const styles = StyleSheet.create({
   menuCard: { borderRadius: 16, borderWidth: 1, overflow: "hidden" },
   menuItem: { flexDirection: "row", alignItems: "center", padding: 16, gap: 12 },
   menuLabel: { flex: 1, fontSize: 15, fontFamily: "Inter_500Medium", textAlign: "right" },
+  loyaltyCard: { borderRadius: 18, borderWidth: 1, padding: 16, gap: 10 },
+  loyaltyHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  loyaltyLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
+  loyaltyTitle: { fontSize: 16, fontFamily: "Inter_700Bold" },
+  loyaltyBadge: { flexDirection: "row", alignItems: "baseline", gap: 3, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
+  loyaltyPoints: { color: "#fff", fontSize: 22, fontFamily: "Inter_700Bold" },
+  loyaltyPtsLabel: { color: "rgba(255,255,255,0.8)", fontSize: 12, fontFamily: "Inter_400Regular" },
+  loyaltyProgress: { height: 8, borderRadius: 4, overflow: "hidden" },
+  loyaltyBar: { height: "100%", borderRadius: 4 },
+  loyaltyHint: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "right" },
+  loyaltyRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  loyaltyRowPts: { fontSize: 13, fontFamily: "Inter_700Bold" },
+  loyaltyRowDesc: { fontSize: 12, fontFamily: "Inter_400Regular", flex: 1, textAlign: "right" },
+  redeemBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, borderRadius: 12 },
+  redeemBtnText: { color: "#fff", fontSize: 13, fontFamily: "Inter_600SemiBold" },
   logoutBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 16, borderRadius: 14, borderWidth: 1.5, gap: 10 },
   logoutText: { fontSize: 15, fontFamily: "Inter_700Bold" },
   overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },

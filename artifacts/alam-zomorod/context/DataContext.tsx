@@ -99,6 +99,28 @@ export interface ServiceRequest {
   couponCode?: string;
   giftRecipientPhone?: string;
   giftRecipientName?: string;
+  isUrgent?: boolean;
+  urgentFee?: number;
+}
+
+export interface ChatMessage {
+  id: string;
+  requestId: string;
+  senderId: string;
+  senderName: string;
+  senderRole: "customer" | "provider";
+  text: string;
+  sentAt: string;
+  isRead: boolean;
+}
+
+export interface LoyaltyTransaction {
+  id: string;
+  customerId: string;
+  type: "earn" | "redeem";
+  points: number;
+  description: string;
+  date: string;
 }
 
 export interface Offer {
@@ -158,7 +180,9 @@ export interface Notification {
     | "package_approved"
     | "new_request"
     | "offer_expiry_warning"
-    | "appointment_reminder";
+    | "appointment_reminder"
+    | "rating_request"
+    | "chat_message";
   title: string;
   body: string;
   isRead: boolean;
@@ -217,6 +241,9 @@ export interface SystemSettings {
   currency: string;
   countryCode: string;
   offerExpiryDays: number;
+  urgentFeeAmount: number;
+  loyaltyPointsPerOrder: number;
+  loyaltyPointsValue: number;
 }
 
 interface DataContextType {
@@ -278,6 +305,13 @@ interface DataContextType {
   deletePackage: (packageId: string) => void;
   setProviderRadius: (providerId: string, radiusKm: number) => void;
   JORDAN_CITIES: string[];
+  chatMessages: ChatMessage[];
+  sendMessage: (requestId: string, senderId: string, senderName: string, senderRole: "customer" | "provider", text: string) => void;
+  getChatMessages: (requestId: string) => ChatMessage[];
+  markChatRead: (requestId: string, userId: string) => void;
+  loyaltyTransactions: LoyaltyTransaction[];
+  getLoyaltyPoints: (customerId: string) => number;
+  redeemLoyaltyPoints: (customerId: string, points: number, description: string) => boolean;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -532,6 +566,8 @@ const COUPONS_KEY = "azom_coupons";
 const TOPUP_KEY = "azom_topup";
 const PACKAGES_KEY = "azom_packages";
 const CUSTOM_SVCS_KEY = "azom_custom_svcs";
+const CHAT_KEY = "azom_chat";
+const LOYALTY_KEY = "azom_loyalty";
 
 const DEFAULT_SETTINGS: SystemSettings = {
   radiusKm: 10,
@@ -544,6 +580,9 @@ const DEFAULT_SETTINGS: SystemSettings = {
   currency: "د.أ",
   countryCode: "JO",
   offerExpiryDays: 2,
+  urgentFeeAmount: 20,
+  loyaltyPointsPerOrder: 10,
+  loyaltyPointsValue: 100,
 };
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
@@ -562,6 +601,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [walletTopupRequests, setWalletTopupRequests] = useState<WalletTopupRequest[]>(MOCK_TOPUP_REQUESTS);
   const [packages, setPackages] = useState<ServicePackage[]>(MOCK_PACKAGES);
   const [customProviderServices, setCustomProviderServices] = useState<CustomProviderService[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [loyaltyTransactions, setLoyaltyTransactions] = useState<LoyaltyTransaction[]>([]);
 
   useEffect(() => {
     loadData();
@@ -569,7 +610,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   async function loadData() {
     try {
-      const [favStr, reqStr, provStr, walStr, setStr, notifStr, cpnStr, topStr, pkgStr, csvcStr] = await Promise.all([
+      const [favStr, reqStr, provStr, walStr, setStr, notifStr, cpnStr, topStr, pkgStr, csvcStr, chatStr, loyStr] = await Promise.all([
         AsyncStorage.getItem(FAV_KEY),
         AsyncStorage.getItem(REQUESTS_KEY),
         AsyncStorage.getItem(PROVIDERS_KEY),
@@ -580,6 +621,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         AsyncStorage.getItem(TOPUP_KEY),
         AsyncStorage.getItem(PACKAGES_KEY),
         AsyncStorage.getItem(CUSTOM_SVCS_KEY),
+        AsyncStorage.getItem(CHAT_KEY),
+        AsyncStorage.getItem(LOYALTY_KEY),
       ]);
       const dedup = <T extends { id: string }>(arr: T[]): T[] => {
         const seen = new Set<string>();
@@ -595,6 +638,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (topStr) setWalletTopupRequests(dedup(JSON.parse(topStr)));
       if (pkgStr) setPackages(dedup(JSON.parse(pkgStr)));
       if (csvcStr) setCustomProviderServices(dedup(JSON.parse(csvcStr)));
+      if (chatStr) setChatMessages(dedup(JSON.parse(chatStr)));
+      if (loyStr) setLoyaltyTransactions(dedup(JSON.parse(loyStr)));
     } catch {}
   }
 
@@ -775,12 +820,38 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             return updated;
           });
         }
+        const earnedPoints = systemSettings.loyaltyPointsPerOrder;
+        setLoyaltyTransactions((lt) => {
+          const newTx: LoyaltyTransaction = {
+            id: "lt" + Date.now(),
+            customerId: req.customerId,
+            type: "earn",
+            points: earnedPoints,
+            description: `نقاط على خدمة: ${req.serviceName}`,
+            date: new Date().toISOString().split("T")[0],
+          };
+          const updated = [newTx, ...lt];
+          save(LOYALTY_KEY, updated);
+          return updated;
+        });
+        setNotifications((nn) => {
+          const ratingNotif: Notification = {
+            id: "n" + Date.now() + Math.random().toString(36).slice(2, 7),
+            userId: req.customerId, role: "customer", type: "rating_request",
+            title: "كيف كانت تجربتك؟",
+            body: `قيّمي خدمة ${req.serviceName} من ${req.providerName} — رأيك يهمنا ✨ (+${earnedPoints} نقطة مكافأة)`,
+            isRead: false, createdAt: new Date().toISOString(), relatedId: requestId,
+          };
+          const updated = [ratingNotif, ...nn];
+          save(NOTIF_KEY, updated);
+          return updated;
+        });
       }
       const updated = prev.map((r) => r.id === requestId ? { ...r, status: "completed" as const } : r);
       save(REQUESTS_KEY, updated);
       return updated;
     });
-  }, [providers, save]);
+  }, [providers, systemSettings, save]);
 
   const cancelRequest = useCallback((requestId: string) => {
     updateRequest(requestId, { status: "cancelled" });
@@ -1183,6 +1254,56 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     });
   }, [save]);
 
+  const sendMessage = useCallback((requestId: string, senderId: string, senderName: string, senderRole: "customer" | "provider", text: string) => {
+    setChatMessages((prev) => {
+      const msg: ChatMessage = {
+        id: "cm" + Date.now() + Math.random().toString(36).slice(2, 6),
+        requestId, senderId, senderName, senderRole,
+        text, sentAt: new Date().toISOString(), isRead: false,
+      };
+      const updated = [...prev, msg];
+      save(CHAT_KEY, updated);
+      return updated;
+    });
+  }, [save]);
+
+  const getChatMessages = useCallback((requestId: string) =>
+    chatMessages.filter((m) => m.requestId === requestId), [chatMessages]);
+
+  const markChatRead = useCallback((requestId: string, userId: string) => {
+    setChatMessages((prev) => {
+      const updated = prev.map((m) =>
+        m.requestId === requestId && m.senderId !== userId ? { ...m, isRead: true } : m
+      );
+      save(CHAT_KEY, updated);
+      return updated;
+    });
+  }, [save]);
+
+  const getLoyaltyPoints = useCallback((customerId: string): number => {
+    return loyaltyTransactions
+      .filter((t) => t.customerId === customerId)
+      .reduce((sum, t) => t.type === "earn" ? sum + t.points : sum - t.points, 0);
+  }, [loyaltyTransactions]);
+
+  const redeemLoyaltyPoints = useCallback((customerId: string, points: number, description: string): boolean => {
+    const available = loyaltyTransactions
+      .filter((t) => t.customerId === customerId)
+      .reduce((sum, t) => t.type === "earn" ? sum + t.points : sum - t.points, 0);
+    if (available < points) return false;
+    setLoyaltyTransactions((prev) => {
+      const tx: LoyaltyTransaction = {
+        id: "lt" + Date.now(),
+        customerId, type: "redeem", points, description,
+        date: new Date().toISOString().split("T")[0],
+      };
+      const updated = [...prev, tx];
+      save(LOYALTY_KEY, updated);
+      return updated;
+    });
+    return true;
+  }, [loyaltyTransactions, save]);
+
   const setProviderRadius = useCallback((providerId: string, radiusKm: number) => {
     setProviders((prev) => {
       const updated = prev.map((p) => p.id === providerId ? { ...p, serviceRadiusKm: radiusKm } : p);
@@ -1232,6 +1353,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       submitProfileChangeRequest, approveProfileChange, rejectProfileChange,
       setProviderRadius,
       JORDAN_CITIES,
+      chatMessages, sendMessage, getChatMessages, markChatRead,
+      loyaltyTransactions, getLoyaltyPoints, redeemLoyaltyPoints,
     }}>
       {children}
     </DataContext.Provider>
