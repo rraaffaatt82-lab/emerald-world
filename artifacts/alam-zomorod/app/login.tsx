@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import React, { useState } from "react";
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -18,9 +19,9 @@ import { useAuth } from "@/context/AuthContext";
 import { STRINGS } from "@/constants/strings";
 
 const DEMO_ACCOUNTS = [
-  { label: "عميل", desc: "سارة أحمد", phone: "1", pass: "1234", icon: "user", color: "#e91e63" },
-  { label: "مزودة خدمة", desc: "نور الجمال", phone: "2", pass: "1234", icon: "scissors", color: "#9c27b0" },
-  { label: "أدمن", desc: "مدير النظام", phone: "3", pass: "1234", icon: "shield", color: "#c2185b" },
+  { label: "عميل", desc: "سارة أحمد", phone: "1", pass: "1234", icon: "user", color: "#8c1a44" },
+  { label: "مزودة خدمة", desc: "نور الجمال", phone: "2", pass: "1234", icon: "scissors", color: "#c8a03a" },
+  { label: "أدمن", desc: "مدير النظام", phone: "3", pass: "1234", icon: "shield", color: "#6b0f34" },
 ];
 
 export default function LoginScreen() {
@@ -66,11 +67,13 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.logoArea}>
-          <View style={[styles.logoCircle, { backgroundColor: colors.primary }]}>
-            <Text style={styles.logoEmoji}>💎</Text>
+          <View style={styles.logoImgWrap}>
+            <Image
+              source={require("@/assets/images/logo.jpeg")}
+              style={styles.logoImg}
+              resizeMode="cover"
+            />
           </View>
-          <Text style={[styles.appName, { color: colors.primary }]}>{STRINGS.appName}</Text>
-          <Text style={[styles.tagline, { color: colors.mutedForeground }]}>{STRINGS.tagline}</Text>
         </View>
 
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -178,14 +181,12 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { paddingHorizontal: 20, alignItems: "center" },
   logoArea: { alignItems: "center", marginBottom: 28 },
-  logoCircle: {
-    width: 84, height: 84, borderRadius: 42,
-    alignItems: "center", justifyContent: "center", marginBottom: 14,
-    shadowColor: "#c2185b", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 14, elevation: 10,
+  logoImgWrap: {
+    width: 230, height: 230, borderRadius: 30, overflow: "hidden",
+    shadowColor: "#c8a03a", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.35, shadowRadius: 22, elevation: 14,
+    borderWidth: 2, borderColor: "#e8c8d8",
   },
-  logoEmoji: { fontSize: 38 },
-  appName: { fontSize: 30, fontFamily: "Inter_700Bold", marginBottom: 4 },
-  tagline: { fontSize: 15, fontFamily: "Inter_400Regular" },
+  logoImg: { width: 230, height: 230 },
   card: { width: "100%", borderRadius: 24, padding: 24, borderWidth: 1 },
   title: { fontSize: 22, fontFamily: "Inter_700Bold", marginBottom: 20, textAlign: "right" },
   field: { marginBottom: 14 },
@@ -198,7 +199,7 @@ const styles = StyleSheet.create({
   loginBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center",
     borderRadius: 16, paddingVertical: 15, marginTop: 6, gap: 10,
-    shadowColor: "#c2185b", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
+    shadowColor: "#8c1a44", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
   },
   loginBtnText: { color: "#fff", fontSize: 17, fontFamily: "Inter_700Bold" },
   divider: { borderTopWidth: 1, marginVertical: 18, paddingTop: 18, alignItems: "center" },

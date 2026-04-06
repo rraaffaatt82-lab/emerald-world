@@ -1,6 +1,6 @@
 export const STRINGS = {
-  appName: "عالم زمرد",
-  tagline: "جمالك في بيتك",
+  appName: "عالم زمردة",
+  tagline: "لجمالك و رونقك",
 
   tabs: {
     home: "الرئيسية",
