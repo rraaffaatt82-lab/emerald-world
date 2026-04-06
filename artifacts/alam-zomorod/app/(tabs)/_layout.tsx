@@ -4,8 +4,9 @@ import { Tabs, router } from "expo-router";
 import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 import { SymbolView } from "expo-symbols";
 import { Feather } from "@expo/vector-icons";
-import React, { useEffect } from "react";
-import { Platform, StyleSheet, View, useColorScheme } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { Animated, Platform, StyleSheet, View, useColorScheme } from "react-native";
+import { playNotificationBeep } from "@/utils/sound";
 
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/context/AuthContext";
@@ -95,7 +96,11 @@ function ClassicTabLayout({ unread }: { unread: number }) {
         options={{
           title: "الإشعارات",
           tabBarBadge: unread > 0 ? unread : undefined,
-          tabBarIcon: ({ color }) => isIOS ? <SymbolView name="bell" tintColor={color} size={24} /> : <Feather name="bell" size={22} color={color} />,
+          tabBarIcon: ({ color }) => isIOS
+            ? <SymbolView name="bell" tintColor={color} size={24} />
+            : unread > 0
+              ? <AnimatedBell color={color} size={24} />
+              : <Feather name="bell" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -109,10 +114,42 @@ function ClassicTabLayout({ unread }: { unread: number }) {
   );
 }
 
+function AnimatedBell({ color, size = 22 }: { color: string; size?: number }) {
+  const shake = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shake, { toValue: 1, duration: 100, useNativeDriver: true }),
+        Animated.timing(shake, { toValue: -1, duration: 100, useNativeDriver: true }),
+        Animated.timing(shake, { toValue: 0.7, duration: 80, useNativeDriver: true }),
+        Animated.timing(shake, { toValue: -0.7, duration: 80, useNativeDriver: true }),
+        Animated.timing(shake, { toValue: 0, duration: 80, useNativeDriver: true }),
+        Animated.delay(2500),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
+  }, []);
+  const rotate = shake.interpolate({ inputRange: [-1, 1], outputRange: ["-25deg", "25deg"] });
+  return (
+    <Animated.View style={{ transform: [{ rotate }] }}>
+      <Feather name="bell" size={size} color={color} />
+    </Animated.View>
+  );
+}
+
 export default function TabLayout() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { notifications } = useData();
+  const prevUnread = useRef(0);
   const unread = notifications.filter((n) => n.userId === user?.id && !n.isRead).length;
+
+  useEffect(() => {
+    if (unread > prevUnread.current) {
+      playNotificationBeep();
+    }
+    prevUnread.current = unread;
+  }, [unread]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {

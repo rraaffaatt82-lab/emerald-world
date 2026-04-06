@@ -18,6 +18,7 @@ export default function AdminSettingsScreen() {
   const [logoUri, setLogoUri] = useState(systemSettings.appLogoUri || "");
   const [mapsApiKey, setMapsApiKey] = useState(systemSettings.googleMapsApiKey || "");
   const [locationEnabled, setLocationEnabled] = useState(systemSettings.locationEnabled !== false);
+  const [offerExpiryDays, setOfferExpiryDays] = useState(String(systemSettings.offerExpiryDays ?? 2));
   const [saveError, setSaveError] = useState("");
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -48,11 +49,13 @@ export default function AdminSettingsScreen() {
       setSaveSuccess(false);
       return;
     }
+    const expiry = parseInt(offerExpiryDays);
     updateSystemSettings({
       radiusKm: r, offerWindowMinutes: w, commissionPercent: c, minOfferAmount: m,
       appLogoUri: logoUri.trim() || undefined,
       googleMapsApiKey: mapsApiKey.trim() || undefined,
       locationEnabled,
+      offerExpiryDays: isNaN(expiry) || expiry < 1 ? 2 : expiry,
     });
     setSaveError("");
     setSaveSuccess(true);
@@ -83,6 +86,14 @@ export default function AdminSettingsScreen() {
           value={window}
           onChange={setWindow}
           desc="المدة التي يستقبل فيها العميل العروض قبل إغلاق الطلب"
+          keyboardType="numeric"
+        />
+        <SettingField
+          icon="calendar"
+          label="مدة انتهاء صلاحية العروض (أيام)"
+          value={offerExpiryDays}
+          onChange={setOfferExpiryDays}
+          desc="بعد انقضاء هذه المدة تُخفى العروض القديمة ويُرسَل إشعار للعميل للاختيار"
           keyboardType="numeric"
         />
       </View>

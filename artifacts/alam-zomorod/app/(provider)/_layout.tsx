@@ -20,6 +20,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "briefcase", selected: "briefcase.fill" }} />
         <Label>نشطة</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="calendar">
+        <Icon sf={{ default: "calendar", selected: "calendar.fill" }} />
+        <Label>التقويم</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="earnings">
         <Icon sf={{ default: "chart.bar", selected: "chart.bar.fill" }} />
         <Label>الأرباح</Label>
@@ -79,6 +83,14 @@ function ClassicTabLayout() {
           title: "نشطة",
           tabBarIcon: ({ color }) =>
             isIOS ? <SymbolView name="briefcase" tintColor={color} size={24} /> : <Feather name="briefcase" size={22} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="calendar"
+        options={{
+          title: "التقويم",
+          tabBarIcon: ({ color }) =>
+            isIOS ? <SymbolView name="calendar" tintColor={color} size={24} /> : <Feather name="calendar" size={22} color={color} />,
         }}
       />
       <Tabs.Screen

@@ -64,6 +64,7 @@ export interface Provider {
     note?: string;
     requestedAt: string;
   };
+  reminderMinutes?: number;
 }
 
 export interface ServiceRequest {
@@ -115,6 +116,7 @@ export interface Offer {
   note?: string;
   status: "pending" | "accepted" | "rejected";
   submittedAt: string;
+  expiresAt?: string;
   contactPhone?: string;
 }
 
@@ -154,7 +156,9 @@ export interface Notification {
     | "account_suspended"
     | "account_approved"
     | "package_approved"
-    | "new_request";
+    | "new_request"
+    | "offer_expiry_warning"
+    | "appointment_reminder";
   title: string;
   body: string;
   isRead: boolean;
@@ -212,6 +216,7 @@ export interface SystemSettings {
   googleMapsApiKey?: string;
   currency: string;
   countryCode: string;
+  offerExpiryDays: number;
 }
 
 interface DataContextType {
@@ -538,6 +543,7 @@ const DEFAULT_SETTINGS: SystemSettings = {
   googleMapsApiKey: "",
   currency: "د.أ",
   countryCode: "JO",
+  offerExpiryDays: 2,
 };
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
@@ -647,14 +653,20 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const submitOffer = useCallback((offer: Omit<Offer, "id" | "submittedAt" | "status">) => {
     const firstName = offer.providerName.split(" ")[0];
+    const expiryDays = systemSettings.offerExpiryDays ?? 2;
+    const expiresAt = new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000).toISOString();
     const newOffer: Offer = {
       ...offer,
       providerFirstName: firstName,
       id: "of" + Date.now() + Math.random().toString(36).slice(2, 7),
       submittedAt: new Date().toISOString(),
+      expiresAt,
       status: "pending",
     };
+    let targetCustomerId = "1";
     setRequests((prev) => {
+      const req = prev.find((r) => r.id === offer.requestId);
+      if (req) targetCustomerId = req.customerId;
       const updated = prev.map((r) => {
         if (r.id !== offer.requestId) return r;
         const alreadyOffered = r.offers.some((o) => o.providerId === offer.providerId);
@@ -669,8 +681,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       return updated;
     });
     addNotification({
-      userId: "1", role: "customer", type: "offer_received",
-      title: "عرض جديد!", body: `وصلك عرض جديد بسعر ${offer.price} د.أ`,
+      userId: targetCustomerId, role: "customer", type: "offer_received",
+      title: "🔔 عرض جديد وصلك!", body: `وصلك عرض من ${offer.providerName} بسعر ${offer.price} د.أ — ينتهي خلال ${expiryDays} يوم`,
       isRead: false, relatedId: offer.requestId,
     });
     addNotification({
@@ -678,7 +690,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       title: "عرض مُقدَّم", body: `${offer.providerName} قدّمت عرضاً للطلب`,
       isRead: false, relatedId: offer.requestId,
     });
-  }, [save, addNotification]);
+  }, [save, addNotification, systemSettings]);
 
   const acceptOffer = useCallback((requestId: string, offerId: string) => {
     setRequests((prev) => {

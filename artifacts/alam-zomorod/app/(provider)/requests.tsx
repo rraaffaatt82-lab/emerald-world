@@ -198,15 +198,17 @@ export default function ProviderRequestsScreen() {
                 <View style={styles.cardInfo}>
                   <Text style={[styles.cardServiceName, { color: colors.foreground }]}>{item.serviceName}</Text>
                   <Text style={[styles.cardCat, { color: colors.mutedForeground }]}>{item.categoryName}</Text>
-                  <View style={styles.cardMeta}>
-                    <Feather name="map-pin" size={12} color={colors.mutedForeground} />
-                    <Text style={[styles.cardMetaText, { color: colors.mutedForeground }]}> {item.address}</Text>
-                  </View>
-                  <View style={styles.cardMeta}>
-                    <Feather name="calendar" size={12} color={colors.mutedForeground} />
-                    <Text style={[styles.cardMetaText, { color: colors.mutedForeground }]}>
-                      {" "}{toHijriShort(item.scheduledAt)}
-                    </Text>
+                  <View style={[styles.locationTimeBadge, { backgroundColor: colors.primary + "10", borderColor: colors.primary + "30" }]}>
+                    <View style={styles.cardMeta}>
+                      <Feather name="clock" size={12} color={colors.primary} />
+                      <Text style={[styles.cardMetaText, { color: colors.primary, fontFamily: "Inter_600SemiBold" }]}>
+                        {" "}{item.scheduledLater ? toHijriShort(item.scheduledAt) : "فوري"}
+                      </Text>
+                    </View>
+                    <View style={[styles.cardMeta, { marginTop: 2 }]}>
+                      <Feather name="map-pin" size={12} color={colors.primary} />
+                      <Text style={[styles.cardMetaText, { color: colors.foreground, fontFamily: "Inter_600SemiBold" }]} numberOfLines={1}> {item.address}</Text>
+                    </View>
                   </View>
                 </View>
                 <View style={styles.cardRight}>
@@ -420,6 +422,7 @@ const styles = StyleSheet.create({
   cardCat: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "right" },
   cardMeta: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end" },
   cardMetaText: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  locationTimeBadge: { borderRadius: 8, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 5, marginTop: 4, alignItems: "flex-end" },
   cardRight: { alignItems: "flex-end", gap: 4 },
   budgetLabel: { fontSize: 11, fontFamily: "Inter_400Regular" },
   budgetVal: { fontSize: 16, fontFamily: "Inter_700Bold" },

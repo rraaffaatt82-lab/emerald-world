@@ -24,8 +24,12 @@ export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { addToFavorites, favorites } = useData();
+  const { addToFavorites, favorites, getRequestsByCustomer } = useData();
   const [search, setSearch] = useState("");
+
+  const myPendingOffers = getRequestsByCustomer(user?.id || "")
+    .filter((r) => r.status === "offers_received" && r.offers.filter((o) => o.status === "pending").length > 0)
+    .slice(0, 3);
 
   const topProviders = PROVIDERS.filter((p) => p.isAvailable).slice(0, 4);
   const filteredProviders = search
@@ -90,6 +94,42 @@ export default function HomeScreen() {
           </TouchableOpacity>
         ) : null}
       </View>
+
+      {myPendingOffers.length > 0 && (
+        <View style={[styles.offerAlertCard, { backgroundColor: colors.primary + "12", borderColor: colors.primary + "40" }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <TouchableOpacity onPress={() => router.push("/(tabs)/orders")}>
+              <Text style={[styles.offerAlertSeeAll, { color: colors.primary }]}>عرض الكل</Text>
+            </TouchableOpacity>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <View style={[styles.offerAlertBadge, { backgroundColor: colors.primary }]}>
+                <Text style={{ color: "#fff", fontSize: 11, fontFamily: "Inter_700Bold" }}>{myPendingOffers.reduce((s, r) => s + r.offers.filter((o) => o.status === "pending").length, 0)}</Text>
+              </View>
+              <Text style={[styles.offerAlertTitle, { color: colors.primary }]}>عروض تنتظر قرارك</Text>
+            </View>
+          </View>
+          {myPendingOffers.map((req) => {
+            const pendingCount = req.offers.filter((o) => o.status === "pending").length;
+            const bestOffer = req.offers.filter((o) => o.status === "pending").sort((a, b) => a.price - b.price)[0];
+            return (
+              <TouchableOpacity
+                key={req.id}
+                style={[styles.offerAlertRow, { backgroundColor: colors.card, borderColor: colors.border }]}
+                onPress={() => router.push({ pathname: "/order/[id]", params: { id: req.id } })}
+              >
+                <Feather name="chevron-left" size={16} color={colors.mutedForeground} />
+                <View style={{ flex: 1, alignItems: "flex-end", gap: 2 }}>
+                  <Text style={[styles.offerAlertService, { color: colors.foreground }]} numberOfLines={1}>{req.serviceName}</Text>
+                  <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular" }}>
+                    {pendingCount} عرض — أفضل سعر: {bestOffer?.price} د.أ
+                  </Text>
+                </View>
+                <View style={[styles.offerAlertDot, { backgroundColor: colors.primary }]} />
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
 
       <TouchableOpacity
         style={[styles.requestBanner, { backgroundColor: colors.primary }]}
@@ -214,6 +254,26 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: "#fff",
   },
+  offerAlertCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 18,
+    gap: 8,
+  },
+  offerAlertTitle: { fontSize: 15, fontFamily: "Inter_700Bold" },
+  offerAlertSeeAll: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  offerAlertBadge: { width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  offerAlertRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  offerAlertService: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  offerAlertDot: { width: 8, height: 8, borderRadius: 4 },
   searchBar: {
     flexDirection: "row",
     alignItems: "center",

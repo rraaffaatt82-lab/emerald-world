@@ -213,11 +213,30 @@ export default function ProviderProfileScreen() {
       <Text style={[styles.pageTitle, { color: colors.foreground }]}>ملف مزود الخدمة</Text>
 
       <View style={[styles.heroCard, { backgroundColor: colors.primary }]}>
-        <View style={[styles.avatar, { backgroundColor: provider?.avatarColor || "#fff" }]}>
-          <Text style={[styles.avatarText, { color: provider?.avatarColor ? "#fff" : colors.primary }]}>
-            {user?.name?.[0] || "م"}
-          </Text>
-        </View>
+        <TouchableOpacity
+          style={{ position: "relative" }}
+          onPress={async () => {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== "granted") return;
+            const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.8 });
+            if (!result.canceled && result.assets[0] && provider) {
+              updateProvider(provider.id, { photoUri: result.assets[0].uri });
+            }
+          }}
+        >
+          {provider?.photoUri ? (
+            <Image source={{ uri: provider.photoUri }} style={[styles.avatar, { borderWidth: 3, borderColor: "rgba(255,255,255,0.6)" }]} />
+          ) : (
+            <View style={[styles.avatar, { backgroundColor: provider?.avatarColor || "#fff" }]}>
+              <Text style={[styles.avatarText, { color: provider?.avatarColor ? "#fff" : colors.primary }]}>
+                {user?.name?.[0] || "م"}
+              </Text>
+            </View>
+          )}
+          <View style={styles.avatarEditBadge}>
+            <Feather name="camera" size={13} color="#fff" />
+          </View>
+        </TouchableOpacity>
         <Text style={styles.providerName}>{user?.name}</Text>
         <View style={styles.badges}>
           <Badge
@@ -1181,6 +1200,7 @@ const styles = StyleSheet.create({
   heroCard: { borderRadius: 20, padding: 24, alignItems: "center", gap: 10 },
   avatar: { width: 70, height: 70, borderRadius: 35, alignItems: "center", justifyContent: "center" },
   avatarText: { fontSize: 28, fontFamily: "Inter_700Bold" },
+  avatarEditBadge: { position: "absolute", bottom: 0, right: 0, width: 22, height: 22, borderRadius: 11, backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: "#fff" },
   providerName: { color: "#fff", fontSize: 20, fontFamily: "Inter_700Bold" },
   badges: { flexDirection: "row", gap: 8, flexWrap: "wrap", justifyContent: "center" },
   statsRow: { flexDirection: "row", backgroundColor: "rgba(255,255,255,0.15)", borderRadius: 14, padding: 14, width: "100%", justifyContent: "space-around", marginTop: 4 },
