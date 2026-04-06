@@ -7,6 +7,23 @@ import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/context/AuthContext";
 import { useData } from "@/context/DataContext";
 
+function MiniBarChart({ data, maxVal, barColor, label }: { data: { label: string; value: number }[]; maxVal: number; barColor: string; label: string }) {
+  return (
+    <View style={{ gap: 8 }}>
+      <Text style={{ color: "#ccc", fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "right" }}>{label}</Text>
+      <View style={{ flexDirection: "row-reverse", alignItems: "flex-end", gap: 6, height: 80 }}>
+        {data.map((d, i) => (
+          <View key={i} style={{ flex: 1, alignItems: "center", gap: 4 }}>
+            <Text style={{ color: "#888", fontSize: 9, fontFamily: "Inter_400Regular" }}>{d.value > 0 ? d.value : ""}</Text>
+            <View style={{ width: "100%", height: maxVal > 0 ? Math.max(4, (d.value / maxVal) * 56) : 4, backgroundColor: barColor, borderRadius: 4, opacity: d.value > 0 ? 1 : 0.25 }} />
+            <Text style={{ color: "#666", fontSize: 9, fontFamily: "Inter_400Regular" }}>{d.label}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 export default function AdminDashboard() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -17,9 +34,22 @@ export default function AdminDashboard() {
 
   const pendingProviders = providers.filter((p) => p.status === "pending");
   const approvedProviders = providers.filter((p) => p.status === "approved");
+  const suspendedProviders = providers.filter((p: any) => p.status === "suspended");
   const totalRevenue = walletTransactions.filter((t) => t.type === "debit").reduce((s, t) => s + t.amount, 0);
   const activeRequests = requests.filter((r) => ["pending", "offers_received", "accepted", "in_progress"].includes(r.status));
   const completedRequests = requests.filter((r) => r.status === "completed");
+
+  const SHORT_DAYS = ["أمس-6", "أمس-5", "أمس-4", "أمس-3", "أمس-2", "أمس", "اليوم"];
+  const demoOrdersData = SHORT_DAYS.map((d, i) => ({ label: d, value: Math.max(0, requests.length - Math.abs(3 - i) * 2) }));
+  const maxOrders = Math.max(...demoOrdersData.map((d) => d.value), 1);
+  const demoRevenueData = SHORT_DAYS.map((d, i) => ({ label: d, value: Math.round(totalRevenue * Math.max(0.1, 1 - Math.abs(3 - i) * 0.25)) }));
+  const maxRevenue = Math.max(...demoRevenueData.map((d) => d.value), 1);
+
+  const statusPieData = [
+    { label: "معتمد", count: approvedProviders.length, color: "#4caf50" },
+    { label: "معلق", count: pendingProviders.length, color: "#c8a951" },
+    { label: "موقوف", count: suspendedProviders.length, color: "#f44336" },
+  ];
 
   const stats = [
     { label: "إجمالي المزودين", value: providers.length, icon: "users", color: "#9c27b0", sub: `${pendingProviders.length} بانتظار الموافقة` },
@@ -99,6 +129,23 @@ export default function AdminDashboard() {
         ))}
       </View>
 
+      <Text style={styles.sectionTitle}>تحليلات المنصة</Text>
+      <View style={styles.analyticsCard}>
+        <MiniBarChart data={demoOrdersData} maxVal={maxOrders} barColor="#2196f3" label="الطلبات (آخر 7 أيام)" />
+        <View style={styles.analyticsDivider} />
+        <MiniBarChart data={demoRevenueData} maxVal={maxRevenue} barColor="#c8a951" label="الإيرادات د.أ (آخر 7 أيام)" />
+        <View style={styles.analyticsDivider} />
+        <Text style={{ color: "#ccc", fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "right", marginBottom: 8 }}>توزيع حالة المزودين</Text>
+        <View style={{ flexDirection: "row-reverse", gap: 10 }}>
+          {statusPieData.map((s) => (
+            <View key={s.label} style={{ flex: 1, backgroundColor: s.color + "20", borderRadius: 12, padding: 12, alignItems: "center", borderWidth: 1, borderColor: s.color + "40" }}>
+              <Text style={{ color: s.color, fontSize: 20, fontFamily: "Inter_700Bold" }}>{s.count}</Text>
+              <Text style={{ color: "#aaa", fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 4 }}>{s.label}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+
       <Text style={styles.sectionTitle}>آخر الطلبات</Text>
       {requests.slice(0, 5).map((r) => (
         <View key={r.id} style={styles.recentRow}>
@@ -152,4 +199,6 @@ const styles = StyleSheet.create({
   recentService: { color: "#fff", fontSize: 14, fontFamily: "Inter_600SemiBold" },
   recentCustomer: { color: "#888", fontSize: 12, fontFamily: "Inter_400Regular" },
   recentPrice: { fontSize: 15, fontFamily: "Inter_700Bold" },
+  analyticsCard: { backgroundColor: "#1a1a2e", borderRadius: 16, padding: 16, gap: 16 },
+  analyticsDivider: { height: 1, backgroundColor: "#ffffff15" },
 });

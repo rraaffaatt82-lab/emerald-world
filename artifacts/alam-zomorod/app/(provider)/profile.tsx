@@ -24,7 +24,7 @@ import { toHijriShort } from "@/utils/date";
 import { StarRating } from "@/components/ui/StarRating";
 import { Badge } from "@/components/ui/Badge";
 
-type TabKey = "overview" | "services" | "wallet" | "notifications" | "packages" | "portfolio";
+type TabKey = "overview" | "services" | "wallet" | "notifications" | "packages" | "portfolio" | "schedule";
 
 export default function ProviderProfileScreen() {
   const colors = useColors();
@@ -35,7 +35,7 @@ export default function ProviderProfileScreen() {
     requestWalletTopup, notifications, markNotificationRead, markAllRead,
     customProviderServices, addCustomProviderService, deleteCustomProviderService,
     addPortfolioPhoto, removePortfolioPhoto, submitProfileChangeRequest,
-    setProviderRadius, packages, addPackage, deletePackage,
+    setProviderRadius, packages, addPackage, deletePackage, setProviderWorkingHours,
   } = useData();
   const webTopPad = Platform.OS === "web" ? 67 : 0;
   const webBottomPad = Platform.OS === "web" ? 34 : 0;
@@ -78,6 +78,31 @@ export default function ProviderProfileScreen() {
   const [editRadius, setEditRadius] = useState("");
   const [pickedPortfolioUri, setPickedPortfolioUri] = useState<string | null>(null);
   const [detectingRadius, setDetectingRadius] = useState(false);
+
+  const DAY_NAMES = ["السبت", "الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة"];
+  const DAY_KEYS = ["sat", "sun", "mon", "tue", "wed", "thu", "fri"];
+  const defaultWorkingHours = DAY_KEYS.map((key) => ({ day: key, isWorking: key !== "fri", from: "09:00", to: "18:00" }));
+  const [scheduleHours, setScheduleHours] = useState(() => {
+    const prov = providers.find((p: any) => p.id === user?.id);
+    return (prov as any)?.workingHours ?? defaultWorkingHours;
+  });
+  function toggleDay(idx: number) {
+    setScheduleHours((prev: any) => {
+      const next = [...prev];
+      next[idx] = { ...next[idx], isWorking: !next[idx].isWorking };
+      return next;
+    });
+  }
+  function setDayTime(idx: number, field: "from" | "to", val: string) {
+    setScheduleHours((prev: any) => {
+      const next = [...prev];
+      next[idx] = { ...next[idx], [field]: val };
+      return next;
+    });
+  }
+  function saveSchedule() {
+    if (user) setProviderWorkingHours(user.id, scheduleHours);
+  }
 
   async function pickPortfolioPhoto() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -198,6 +223,7 @@ export default function ProviderProfileScreen() {
     { key: "packages", label: "الباقات", icon: "package" },
     { key: "portfolio", label: "أعمالي", icon: "image" },
     { key: "wallet", label: "المحفظة", icon: "credit-card" },
+    { key: "schedule", label: "المواعيد", icon: "calendar" },
     { key: "notifications", label: unreadCount > 0 ? `(${unreadCount})` : "إشعارات", icon: "bell" },
   ];
 
@@ -630,6 +656,57 @@ export default function ProviderProfileScreen() {
               </View>
             </View>
           ))}
+        </>
+      )}
+
+      {tab === "schedule" && (
+        <>
+          <Text style={[styles.sectionTitle, { color: colors.foreground, textAlign: "right" }]}>ساعات الدوام الأسبوعي</Text>
+          <Text style={[styles.sectionNote, { color: colors.mutedForeground }]}>
+            حددي أيام وساعات عملك — ستُعرض للعملاء عند حجز الخدمة
+          </Text>
+          {DAY_KEYS.map((dayKey, idx) => (
+            <View key={dayKey} style={[styles.customSvcRow, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: "row-reverse", alignItems: "center", gap: 10 }]}>
+              <TouchableOpacity
+                style={[{ width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: scheduleHours[idx]?.isWorking ? colors.primary : colors.border, backgroundColor: scheduleHours[idx]?.isWorking ? colors.primary : "transparent", alignItems: "center", justifyContent: "center" }]}
+                onPress={() => toggleDay(idx)}
+              >
+                {scheduleHours[idx]?.isWorking && <Feather name="check" size={14} color="#fff" />}
+              </TouchableOpacity>
+              <Text style={{ width: 52, fontSize: 13, fontFamily: "Inter_700Bold", color: scheduleHours[idx]?.isWorking ? colors.foreground : colors.mutedForeground, textAlign: "right" }}>{DAY_NAMES[idx]}</Text>
+              {scheduleHours[idx]?.isWorking ? (
+                <View style={{ flex: 1, flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                  <TextInput
+                    value={scheduleHours[idx]?.from || "09:00"}
+                    onChangeText={(v) => setDayTime(idx, "from", v)}
+                    style={{ flex: 1, textAlign: "center", fontSize: 13, fontFamily: "Inter_500Medium", color: colors.foreground, backgroundColor: colors.muted, borderRadius: 8, paddingVertical: 6, paddingHorizontal: 8, borderWidth: 1, borderColor: colors.border }}
+                    placeholder="09:00"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="numbers-and-punctuation"
+                  />
+                  <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>إلى</Text>
+                  <TextInput
+                    value={scheduleHours[idx]?.to || "18:00"}
+                    onChangeText={(v) => setDayTime(idx, "to", v)}
+                    style={{ flex: 1, textAlign: "center", fontSize: 13, fontFamily: "Inter_500Medium", color: colors.foreground, backgroundColor: colors.muted, borderRadius: 8, paddingVertical: 6, paddingHorizontal: 8, borderWidth: 1, borderColor: colors.border }}
+                    placeholder="18:00"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="numbers-and-punctuation"
+                  />
+                  <Text style={{ color: colors.mutedForeground, fontSize: 12 }}>من</Text>
+                </View>
+              ) : (
+                <Text style={{ flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", color: colors.mutedForeground, textAlign: "center" }}>إجازة</Text>
+              )}
+            </View>
+          ))}
+          <TouchableOpacity
+            style={[styles.addSvcBtn, { backgroundColor: colors.primary, alignSelf: "flex-end", paddingHorizontal: 24, paddingVertical: 12, marginTop: 4 }]}
+            onPress={saveSchedule}
+          >
+            <Feather name="check" size={14} color="#fff" />
+            <Text style={styles.addSvcBtnText}>حفظ المواعيد</Text>
+          </TouchableOpacity>
         </>
       )}
 

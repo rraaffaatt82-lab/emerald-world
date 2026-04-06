@@ -19,13 +19,13 @@ import { STRINGS } from "@/constants/strings";
 import { Badge } from "@/components/ui/Badge";
 import { useData } from "@/context/DataContext";
 
-type ActiveModal = "none" | "edit" | "phone" | "favorites" | "help" | "about" | "logout_confirm";
+type ActiveModal = "none" | "edit" | "phone" | "favorites" | "help" | "about" | "logout_confirm" | "addresses";
 
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user, logout, updateUser } = useAuth();
-  const { favorites, removeFromFavorites, providers, getLoyaltyPoints, loyaltyTransactions, systemSettings, redeemLoyaltyPoints } = useData();
+  const { favorites, removeFromFavorites, providers, getLoyaltyPoints, loyaltyTransactions, systemSettings, redeemLoyaltyPoints, savedAddresses, addSavedAddress, deleteSavedAddress } = useData();
   const [activeModal, setActiveModal] = useState<ActiveModal>("none");
   const [editName, setEditName] = useState(user?.name || "");
   const [newPhone, setNewPhone] = useState("");
@@ -33,8 +33,11 @@ export default function ProfileScreen() {
   const [otpValue, setOtpValue] = useState("");
   const [otpError, setOtpError] = useState("");
   const [phoneSaved, setPhoneSaved] = useState(false);
+  const [newAddrLabel, setNewAddrLabel] = useState("");
+  const [newAddrText, setNewAddrText] = useState("");
   const webTopPad = Platform.OS === "web" ? 67 : 0;
   const webBottomPad = Platform.OS === "web" ? 34 : 0;
+  const myAddresses = savedAddresses.filter((a) => a.customerId === user?.id);
 
   const favProviders = providers.filter((p) => favorites.includes(p.id));
 
@@ -48,12 +51,9 @@ export default function ProfileScreen() {
   const menuItems = [
     { icon: "edit-2", label: STRINGS.profile.editProfile, onPress: () => { setEditName(user?.name || ""); setActiveModal("edit"); } },
     { icon: "phone", label: "تعديل رقم الهاتف", onPress: () => { setNewPhone(""); setOtpSent(false); setOtpValue(""); setOtpError(""); setPhoneSaved(false); setActiveModal("phone"); } },
+    { icon: "map-pin", label: "دفتر العناوين", badge: myAddresses.length, onPress: () => { setNewAddrLabel(""); setNewAddrText(""); setActiveModal("addresses"); } },
     { icon: "heart", label: STRINGS.profile.favorites, onPress: () => setActiveModal("favorites") },
-    {
-      icon: "bell",
-      label: STRINGS.profile.notifications,
-      onPress: () => router.push("/(tabs)/notifications"),
-    },
+    { icon: "bell", label: STRINGS.profile.notifications, onPress: () => router.push("/(tabs)/notifications") },
     { icon: "help-circle", label: STRINGS.profile.help, onPress: () => setActiveModal("help") },
     { icon: "info", label: STRINGS.profile.about, onPress: () => setActiveModal("about") },
   ];
@@ -172,22 +172,24 @@ export default function ProfileScreen() {
         })()}
 
         <View style={[styles.menuCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          {menuItems.map((item, i) => (
+          {menuItems.map((item: any, i) => (
             <TouchableOpacity
               key={item.label}
               style={[
                 styles.menuItem,
-                i < menuItems.length - 1 && {
-                  borderBottomWidth: 1,
-                  borderBottomColor: colors.border,
-                },
+                i < menuItems.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
               ]}
               onPress={item.onPress}
             >
-              <Feather name="chevron-left" size={18} color={colors.mutedForeground} />
-              <Text style={[styles.menuLabel, { color: colors.foreground }]}>
-                {item.label}
-              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                {item.badge > 0 && (
+                  <View style={{ backgroundColor: colors.primary, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 }}>
+                    <Text style={{ color: "#fff", fontSize: 11, fontFamily: "Inter_700Bold" }}>{item.badge}</Text>
+                  </View>
+                )}
+                <Feather name="chevron-left" size={18} color={colors.mutedForeground} />
+              </View>
+              <Text style={[styles.menuLabel, { color: colors.foreground }]}>{item.label}</Text>
               <Feather name={item.icon as any} size={20} color={colors.primary} />
             </TouchableOpacity>
           ))}
@@ -447,6 +449,84 @@ export default function ProfileScreen() {
                 <Feather name={f.icon as any} size={18} color={colors.primary} />
               </View>
             ))}
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Address Book Modal */}
+      <Modal visible={activeModal === "addresses"} transparent animationType="slide" onRequestClose={() => setActiveModal("none")}>
+        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setActiveModal("none")}>
+          <TouchableOpacity activeOpacity={1} style={[styles.sheet, styles.sheetTall, { backgroundColor: colors.card }]} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetHeader}>
+              <TouchableOpacity onPress={() => setActiveModal("none")}>
+                <Feather name="x" size={22} color={colors.foreground} />
+              </TouchableOpacity>
+              <Text style={[styles.sheetTitle, { color: colors.foreground }]}>دفتر العناوين</Text>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {myAddresses.length === 0 && (
+                <View style={{ alignItems: "center", paddingVertical: 24, gap: 10 }}>
+                  <Feather name="map-pin" size={40} color={colors.border} />
+                  <Text style={[styles.emptyFavText, { color: colors.mutedForeground }]}>لا يوجد عناوين محفوظة</Text>
+                </View>
+              )}
+              {myAddresses.map((addr) => (
+                <View key={addr.id} style={[styles.favRow, { borderBottomColor: colors.border }]}>
+                  <TouchableOpacity
+                    style={[styles.favRemoveBtn, { backgroundColor: colors.destructive + "15" }]}
+                    onPress={() => deleteSavedAddress(addr.id)}
+                  >
+                    <Feather name="trash-2" size={16} color={colors.destructive} />
+                  </TouchableOpacity>
+                  <View style={styles.favInfo}>
+                    <Text style={[styles.favName, { color: colors.foreground }]}>{addr.label}</Text>
+                    <Text style={[styles.favMeta, { color: colors.mutedForeground }]}>{addr.address}</Text>
+                  </View>
+                  <View style={[styles.favAvatar, { backgroundColor: colors.primary + "20" }]}>
+                    <Feather name="map-pin" size={18} color={colors.primary} />
+                  </View>
+                </View>
+              ))}
+              <View style={{ gap: 10, marginTop: 16, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 16 }}>
+                <Text style={[styles.fieldLabel, { color: colors.foreground }]}>إضافة عنوان جديد</Text>
+                <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.muted }]}>
+                  <Feather name="tag" size={16} color={colors.mutedForeground} />
+                  <TextInput
+                    style={[styles.input, { color: colors.foreground }]}
+                    value={newAddrLabel}
+                    onChangeText={setNewAddrLabel}
+                    placeholder="التسمية (البيت، العمل...)"
+                    placeholderTextColor={colors.mutedForeground}
+                    textAlign="right"
+                  />
+                </View>
+                <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.muted }]}>
+                  <Feather name="map-pin" size={16} color={colors.mutedForeground} />
+                  <TextInput
+                    style={[styles.input, { color: colors.foreground }]}
+                    value={newAddrText}
+                    onChangeText={setNewAddrText}
+                    placeholder="العنوان التفصيلي"
+                    placeholderTextColor={colors.mutedForeground}
+                    textAlign="right"
+                  />
+                </View>
+                <TouchableOpacity
+                  style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: newAddrLabel.trim() && newAddrText.trim() ? 1 : 0.5 }]}
+                  disabled={!newAddrLabel.trim() || !newAddrText.trim()}
+                  onPress={() => {
+                    if (user) {
+                      addSavedAddress(user.id, newAddrLabel.trim(), newAddrText.trim());
+                      setNewAddrLabel("");
+                      setNewAddrText("");
+                    }
+                  }}
+                >
+                  <Text style={styles.saveBtnText}>حفظ العنوان</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>

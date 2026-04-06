@@ -65,6 +65,7 @@ export interface Provider {
     requestedAt: string;
   };
   reminderMinutes?: number;
+  workingHours?: WorkingDay[];
 }
 
 export interface ServiceRequest {
@@ -218,6 +219,20 @@ export interface ServicePackage {
   createdAt: string;
 }
 
+export interface SavedAddress {
+  id: string;
+  customerId: string;
+  label: string;
+  address: string;
+}
+
+export interface WorkingDay {
+  day: number;
+  isOpen: boolean;
+  from: string;
+  to: string;
+}
+
 export interface CustomProviderService {
   id: string;
   providerId: string;
@@ -312,6 +327,10 @@ interface DataContextType {
   loyaltyTransactions: LoyaltyTransaction[];
   getLoyaltyPoints: (customerId: string) => number;
   redeemLoyaltyPoints: (customerId: string, points: number, description: string) => boolean;
+  savedAddresses: SavedAddress[];
+  addSavedAddress: (customerId: string, label: string, address: string) => void;
+  deleteSavedAddress: (id: string) => void;
+  setProviderWorkingHours: (providerId: string, hours: WorkingDay[]) => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -568,6 +587,7 @@ const PACKAGES_KEY = "azom_packages";
 const CUSTOM_SVCS_KEY = "azom_custom_svcs";
 const CHAT_KEY = "azom_chat";
 const LOYALTY_KEY = "azom_loyalty";
+const ADDRESSES_KEY = "azom_addresses";
 
 const DEFAULT_SETTINGS: SystemSettings = {
   radiusKm: 10,
@@ -603,6 +623,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [customProviderServices, setCustomProviderServices] = useState<CustomProviderService[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [loyaltyTransactions, setLoyaltyTransactions] = useState<LoyaltyTransaction[]>([]);
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
 
   useEffect(() => {
     loadData();
@@ -610,7 +631,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   async function loadData() {
     try {
-      const [favStr, reqStr, provStr, walStr, setStr, notifStr, cpnStr, topStr, pkgStr, csvcStr, chatStr, loyStr] = await Promise.all([
+      const [favStr, reqStr, provStr, walStr, setStr, notifStr, cpnStr, topStr, pkgStr, csvcStr, chatStr, loyStr, addrStr] = await Promise.all([
         AsyncStorage.getItem(FAV_KEY),
         AsyncStorage.getItem(REQUESTS_KEY),
         AsyncStorage.getItem(PROVIDERS_KEY),
@@ -623,6 +644,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         AsyncStorage.getItem(CUSTOM_SVCS_KEY),
         AsyncStorage.getItem(CHAT_KEY),
         AsyncStorage.getItem(LOYALTY_KEY),
+        AsyncStorage.getItem(ADDRESSES_KEY),
       ]);
       const dedup = <T extends { id: string }>(arr: T[]): T[] => {
         const seen = new Set<string>();
@@ -640,6 +662,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (csvcStr) setCustomProviderServices(dedup(JSON.parse(csvcStr)));
       if (chatStr) setChatMessages(dedup(JSON.parse(chatStr)));
       if (loyStr) setLoyaltyTransactions(dedup(JSON.parse(loyStr)));
+      if (addrStr) setSavedAddresses(dedup(JSON.parse(addrStr)));
     } catch {}
   }
 
@@ -1312,6 +1335,31 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     });
   }, [save]);
 
+  const addSavedAddress = useCallback((customerId: string, label: string, address: string) => {
+    setSavedAddresses((prev) => {
+      const newAddr: SavedAddress = { id: "addr" + Date.now(), customerId, label, address };
+      const updated = [...prev, newAddr];
+      save(ADDRESSES_KEY, updated);
+      return updated;
+    });
+  }, [save]);
+
+  const deleteSavedAddress = useCallback((id: string) => {
+    setSavedAddresses((prev) => {
+      const updated = prev.filter((a) => a.id !== id);
+      save(ADDRESSES_KEY, updated);
+      return updated;
+    });
+  }, [save]);
+
+  const setProviderWorkingHours = useCallback((providerId: string, hours: WorkingDay[]) => {
+    setProviders((prev) => {
+      const updated = prev.map((p) => p.id === providerId ? { ...p, workingHours: hours } : p);
+      save(PROVIDERS_KEY, updated);
+      return updated;
+    });
+  }, [save]);
+
   const getRequestsByCustomer = useCallback((userId: string) =>
     requests.filter((r) => r.customerId === userId), [requests]);
 
@@ -1355,6 +1403,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       JORDAN_CITIES,
       chatMessages, sendMessage, getChatMessages, markChatRead,
       loyaltyTransactions, getLoyaltyPoints, redeemLoyaltyPoints,
+      savedAddresses, addSavedAddress, deleteSavedAddress,
+      setProviderWorkingHours,
     }}>
       {children}
     </DataContext.Provider>
