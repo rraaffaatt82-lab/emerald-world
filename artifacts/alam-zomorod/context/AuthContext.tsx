@@ -29,6 +29,7 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (phone: string, password: string) => Promise<{ success: boolean; role?: UserRole; error?: string }>;
+  loginByPhone: (phone: string) => Promise<{ success: boolean; role?: UserRole; error?: string }>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => void;
@@ -99,6 +100,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const loginByPhone = useCallback(async (phone: string) => {
+    setIsLoading(true);
+    try {
+      await new Promise((r) => setTimeout(r, 400));
+      const found = MOCK_USERS.find((u) => u.phone === phone.trim());
+      if (found) {
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(found));
+        setUser(found);
+        return { success: true, role: found.role };
+      }
+      const stored = await AsyncStorage.getItem(STORAGE_KEY + "_registered_" + phone.trim());
+      if (stored) {
+        const regUser: User = JSON.parse(stored);
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(regUser));
+        setUser(regUser);
+        return { success: true, role: regUser.role };
+      }
+      return { success: false, error: "رقم الهاتف غير مسجّل، يرجى إنشاء حساب جديد" };
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   const login = useCallback(async (phone: string, password: string) => {
     if (!phone.trim() || !password.trim()) {
       return { success: false, error: "يرجى إدخال رقم الهاتف وكلمة المرور" };
@@ -125,7 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = useCallback(async (data: RegisterData) => {
     setIsLoading(true);
     try {
-      await new Promise((r) => setTimeout(r, 1200));
+      await new Promise((r) => setTimeout(r, 800));
       const newUser: User = {
         id: data.role === "provider" ? "p" + Date.now() : String(Date.now()),
         name: data.name,
@@ -138,6 +162,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isVerified: false,
       };
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newUser));
+      await AsyncStorage.setItem(STORAGE_KEY + "_registered_" + data.phone.trim(), JSON.stringify(newUser));
       setUser(newUser);
     } finally {
       setIsLoading(false);
@@ -159,7 +184,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, isAuthenticated: !!user, login, register, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, isLoading, isAuthenticated: !!user, login, loginByPhone, register, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

@@ -217,6 +217,7 @@ function RootLayoutNav() {
       <Stack.Screen name="request-service" options={{ presentation: "modal", headerShown: false }} />
       <Stack.Screen name="provider/[id]" options={{ headerShown: false }} />
       <Stack.Screen name="order/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="otp-verify" options={{ headerShown: false }} />
     </Stack>
   );
 }

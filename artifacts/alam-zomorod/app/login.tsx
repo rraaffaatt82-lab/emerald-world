@@ -17,53 +17,53 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/context/AuthContext";
 import { STRINGS } from "@/constants/strings";
+import { sendOtp } from "@/services/otpService";
 
 const DEMO_ACCOUNTS = [
-  { label: "عميل", desc: "سارة أحمد", phone: "1", pass: "1234", icon: "user", color: "#8c1a44" },
-  { label: "مزودة خدمة", desc: "نور الجمال", phone: "2", pass: "1234", icon: "scissors", color: "#c8a03a" },
-  { label: "أدمن", desc: "مدير النظام", phone: "3", pass: "1234", icon: "shield", color: "#6b0f34" },
+  { label: "عميل", desc: "سارة أحمد", phone: "1", icon: "user", color: "#8c1a44" },
+  { label: "مزودة خدمة", desc: "نور الجمال", phone: "2", icon: "scissors", color: "#c8a03a" },
+  { label: "أدمن", desc: "مدير النظام", phone: "3", icon: "shield", color: "#6b0f34" },
 ];
 
 export default function LoginScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { login, isLoading } = useAuth();
   const [phone, setPhone] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPass, setShowPass] = useState(false);
-  const [showDemo, setShowDemo] = useState(false);
-  const [loginError, setLoginError] = useState("");
+  const [error, setError] = useState("");
+  const [sending, setSending] = useState(false);
 
-  async function handleLogin() {
+  async function handleSendOtp() {
     if (!phone.trim()) {
-      setLoginError("يرجى إدخال رقم الهاتف");
+      setError("يرجى إدخال رقم الهاتف");
       return;
     }
-    if (!password.trim()) {
-      setLoginError("يرجى إدخال كلمة المرور");
-      return;
-    }
-    setLoginError("");
+    setError("");
+    setSending(true);
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const result = await login(phone.trim(), password);
+
+    const result = await sendOtp(phone.trim());
+    setSending(false);
+
     if (!result.success) {
-      setLoginError(result.error || "بيانات غير صحيحة");
+      setError(result.error || "فشل إرسال رمز التحقق");
       return;
     }
-    if (result.role === "admin") {
-      router.replace("/(admin)");
-    } else if (result.role === "provider") {
-      router.replace("/(provider)/requests");
-    } else {
-      router.replace("/(tabs)");
-    }
+
+    router.push({
+      pathname: "/otp-verify",
+      params: {
+        phone: phone.trim(),
+        mode: "login",
+        demoCode: result.demoCode || "",
+      },
+    });
   }
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView
         style={[styles.container, { backgroundColor: colors.background }]}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 48, paddingBottom: insets.bottom + 20 }]}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + (Platform.OS === "web" ? 67 : 0) + 48, paddingBottom: insets.bottom + 20 }]}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.logoArea}>
@@ -78,6 +78,9 @@ export default function LoginScreen() {
 
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.title, { color: colors.foreground }]}>{STRINGS.auth.welcomeBack}</Text>
+          <Text style={[styles.hint, { color: colors.mutedForeground }]}>
+            أدخلي رقم هاتفك وسنرسل لكِ رمز التحقق
+          </Text>
 
           <View style={styles.field}>
             <Text style={[styles.label, { color: colors.foreground }]}>{STRINGS.auth.phone}</Text>
@@ -92,45 +95,31 @@ export default function LoginScreen() {
                 keyboardType="phone-pad"
                 textAlign="right"
                 autoComplete="off"
+                onSubmitEditing={handleSendOtp}
+                returnKeyType="send"
               />
             </View>
           </View>
 
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: colors.foreground }]}>{STRINGS.auth.password}</Text>
-            <View style={[styles.inputWrapper, { borderColor: password ? colors.primary : colors.input, backgroundColor: colors.muted }]}>
-              <TouchableOpacity onPress={() => setShowPass(!showPass)}>
-                <Feather name={showPass ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
-              </TouchableOpacity>
-              <TextInput
-                style={[styles.input, { color: colors.foreground }]}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="كلمة المرور"
-                placeholderTextColor={colors.mutedForeground}
-                secureTextEntry={!showPass}
-                textAlign="right"
-              />
-            </View>
-          </View>
-
-          {loginError !== "" && (
-            <View style={{ backgroundColor: "#fce4ec", borderRadius: 10, padding: 10, marginBottom: 12 }}>
-              <Text style={{ color: "#c2185b", fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "center" }}>{loginError}</Text>
+          {error !== "" && (
+            <View style={{ backgroundColor: "#fce4ec", borderRadius: 10, padding: 10, marginBottom: 12, flexDirection: "row", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
+              <Text style={{ color: "#c2185b", fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "right" }}>{error}</Text>
+              <Feather name="alert-circle" size={14} color="#c2185b" />
             </View>
           )}
+
           <TouchableOpacity
-            style={[styles.loginBtn, { backgroundColor: colors.primary }, isLoading && { opacity: 0.7 }]}
-            onPress={handleLogin}
-            disabled={isLoading}
+            style={[styles.loginBtn, { backgroundColor: colors.primary }, sending && { opacity: 0.7 }]}
+            onPress={handleSendOtp}
+            disabled={sending}
             activeOpacity={0.85}
           >
-            {isLoading ? (
-              <Text style={styles.loginBtnText}>جارٍ تسجيل الدخول...</Text>
+            {sending ? (
+              <Text style={styles.loginBtnText}>جارٍ إرسال الرمز...</Text>
             ) : (
               <>
-                <Feather name="log-in" size={18} color="#fff" />
-                <Text style={styles.loginBtnText}>{STRINGS.auth.login}</Text>
+                <Feather name="send" size={18} color="#fff" />
+                <Text style={styles.loginBtnText}>إرسال رمز التحقق</Text>
               </>
             )}
           </TouchableOpacity>
@@ -147,14 +136,11 @@ export default function LoginScreen() {
                 onPress={() => {
                   Haptics.selectionAsync();
                   setPhone(acc.phone);
-                  setPassword(acc.pass);
-                  setShowDemo(false);
+                  setError("");
                 }}
               >
                 <View style={styles.demoLeft}>
-                  <Text style={[styles.demoPass, { color: colors.mutedForeground }]}>
-                    رقم: {acc.phone} | باسورد: {acc.pass}
-                  </Text>
+                  <Text style={[styles.demoPass, { color: colors.mutedForeground }]}>رقم: {acc.phone}</Text>
                   <Text style={[styles.demoDesc, { color: colors.foreground }]}>{acc.desc}</Text>
                 </View>
                 <View style={[styles.demoBadge, { backgroundColor: acc.color + "15" }]}>
@@ -182,13 +168,14 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 20, alignItems: "center" },
   logoArea: { alignItems: "center", marginBottom: 28 },
   logoImgWrap: {
-    width: 230, height: 230, borderRadius: 30, overflow: "hidden",
+    width: 200, height: 200, borderRadius: 30, overflow: "hidden",
     shadowColor: "#c8a03a", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.35, shadowRadius: 22, elevation: 14,
     borderWidth: 2, borderColor: "#e8c8d8",
   },
-  logoImg: { width: 230, height: 230 },
+  logoImg: { width: 200, height: 200 },
   card: { width: "100%", borderRadius: 24, padding: 24, borderWidth: 1 },
-  title: { fontSize: 22, fontFamily: "Inter_700Bold", marginBottom: 20, textAlign: "right" },
+  title: { fontSize: 22, fontFamily: "Inter_700Bold", marginBottom: 6, textAlign: "right" },
+  hint: { fontSize: 13, fontFamily: "Inter_400Regular", marginBottom: 20, textAlign: "right" },
   field: { marginBottom: 14 },
   label: { fontSize: 14, fontFamily: "Inter_600SemiBold", marginBottom: 8, textAlign: "right" },
   inputWrapper: {

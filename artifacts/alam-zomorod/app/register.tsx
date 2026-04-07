@@ -16,37 +16,48 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useAuth, UserRole, ProviderType } from "@/context/AuthContext";
 import { STRINGS } from "@/constants/strings";
+import { sendOtp } from "@/services/otpService";
 
 export default function RegisterScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { register, isLoading } = useAuth();
+  const { register } = useAuth();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [password, setPassword] = useState("");
   const [role, setRole] = useState<UserRole>("customer");
   const [providerType, setProviderType] = useState<ProviderType>("freelancer");
-  const [showPass, setShowPass] = useState(false);
   const [registerError, setRegisterError] = useState("");
+  const [sending, setSending] = useState(false);
 
   async function handleRegister() {
-    if (!name || !phone || !password) {
-      setRegisterError("يرجى إدخال جميع البيانات المطلوبة");
+    if (!name.trim() || !phone.trim()) {
+      setRegisterError("يرجى إدخال الاسم ورقم الهاتف");
       return;
     }
     setRegisterError("");
+    setSending(true);
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      await register({
-        name,
-        phone,
-        password,
-        role,
-        providerType: role === "provider" ? providerType : undefined,
+      const result = await sendOtp(phone.trim());
+      if (!result.success) {
+        setRegisterError(result.error || "فشل إرسال رمز التحقق");
+        return;
+      }
+      router.push({
+        pathname: "/otp-verify",
+        params: {
+          phone: phone.trim(),
+          mode: "register",
+          demoCode: result.demoCode || "",
+          name: name.trim(),
+          role,
+          providerType: role === "provider" ? providerType : "",
+        },
       });
-      router.replace("/(tabs)");
     } catch {
-      setRegisterError("حدث خطأ أثناء إنشاء الحساب");
+      setRegisterError("حدث خطأ، يرجى المحاولة مجدداً");
+    } finally {
+      setSending(false);
     }
   }
 
@@ -168,25 +179,6 @@ export default function RegisterScreen() {
             </View>
           </View>
 
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: colors.foreground }]}>
-              {STRINGS.auth.password}
-            </Text>
-            <View style={[styles.inputWrapper, { borderColor: colors.input, backgroundColor: colors.muted }]}>
-              <TouchableOpacity onPress={() => setShowPass(!showPass)}>
-                <Feather name={showPass ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
-              </TouchableOpacity>
-              <TextInput
-                style={[styles.input, { color: colors.foreground }]}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="••••••"
-                placeholderTextColor={colors.mutedForeground}
-                secureTextEntry={!showPass}
-                textAlign="right"
-              />
-            </View>
-          </View>
 
           {registerError !== "" && (
             <View style={{ backgroundColor: colors.destructive + "20", borderRadius: 10, padding: 10, marginBottom: 12 }}>
@@ -197,13 +189,14 @@ export default function RegisterScreen() {
             style={[
               styles.registerBtn,
               { backgroundColor: colors.primary },
-              isLoading && { opacity: 0.7 },
+              sending && { opacity: 0.7 },
             ]}
             onPress={handleRegister}
-            disabled={isLoading}
+            disabled={sending}
+            activeOpacity={0.85}
           >
             <Text style={styles.registerBtnText}>
-              {isLoading ? "جارٍ إنشاء الحساب..." : STRINGS.auth.register}
+              {sending ? "جارٍ إرسال الرمز..." : "إرسال رمز التحقق"}
             </Text>
           </TouchableOpacity>
 
