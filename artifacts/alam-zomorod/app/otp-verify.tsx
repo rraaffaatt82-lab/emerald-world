@@ -27,14 +27,16 @@ export default function OtpVerifyScreen() {
   const params = useLocalSearchParams<{
     phone: string;
     mode: "login" | "register";
-    demoCode?: string;
     name?: string;
     role?: string;
     providerType?: string;
     city?: string;
   }>();
 
-  const { phone, mode, demoCode, name, role, providerType, city } = params;
+  const { phone, mode, name, role, providerType, city } = params;
+  // Show fixed demo code for demo phones regardless of URL param
+  const isDemoPhone = ["1", "2", "3"].includes((phone || "").trim()) || (phone || "").trim().length < 5;
+  const demoCode = isDemoPhone ? "123456" : null;
 
   const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(""));
   const [error, setError] = useState("");
