@@ -24,7 +24,7 @@ import { toHijriShort } from "@/utils/date";
 import { StarRating } from "@/components/ui/StarRating";
 import { Badge } from "@/components/ui/Badge";
 
-type TabKey = "overview" | "services" | "wallet" | "notifications" | "packages" | "portfolio" | "schedule";
+type TabKey = "overview" | "services" | "wallet" | "notifications" | "packages" | "portfolio" | "schedule" | "earnings" | "flash";
 
 export default function ProviderProfileScreen() {
   const colors = useColors();
@@ -36,6 +36,8 @@ export default function ProviderProfileScreen() {
     customProviderServices, addCustomProviderService, deleteCustomProviderService,
     addPortfolioPhoto, removePortfolioPhoto, submitProfileChangeRequest,
     setProviderRadius, packages, addPackage, deletePackage, setProviderWorkingHours,
+    toggleVacationMode, flashOffers, addFlashOffer, deactivateFlashOffer,
+    setBeforeAfterPhotos,
   } = useData();
   const webTopPad = Platform.OS === "web" ? 67 : 0;
   const webBottomPad = Platform.OS === "web" ? 34 : 0;
@@ -78,6 +80,15 @@ export default function ProviderProfileScreen() {
   const [editRadius, setEditRadius] = useState("");
   const [pickedPortfolioUri, setPickedPortfolioUri] = useState<string | null>(null);
   const [detectingRadius, setDetectingRadius] = useState(false);
+  const [showFlashModal, setShowFlashModal] = useState(false);
+  const [flashDesc, setFlashDesc] = useState("");
+  const [flashDiscount, setFlashDiscount] = useState("");
+  const [flashHours, setFlashHours] = useState("4");
+  const [flashError, setFlashError] = useState("");
+  const [flashSuccess, setFlashSuccess] = useState(false);
+  const [beforeAfterOrderId, setBeforeAfterOrderId] = useState<string | null>(null);
+  const [pickedBeforeUri, setPickedBeforeUri] = useState<string | null>(null);
+  const [pickedAfterUri, setPickedAfterUri] = useState<string | null>(null);
 
   const DAY_NAMES = ["السبت", "الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة"];
   const DAY_KEYS = ["sat", "sun", "mon", "tue", "wed", "thu", "fri"];
@@ -222,10 +233,48 @@ export default function ProviderProfileScreen() {
     { key: "services", label: "الخدمات", icon: "list" },
     { key: "packages", label: "الباقات", icon: "package" },
     { key: "portfolio", label: "أعمالي", icon: "image" },
+    { key: "flash", label: "عروض", icon: "zap" },
+    { key: "earnings", label: "الأرباح", icon: "bar-chart-2" },
     { key: "wallet", label: "المحفظة", icon: "credit-card" },
     { key: "schedule", label: "المواعيد", icon: "calendar" },
     { key: "notifications", label: unreadCount > 0 ? `(${unreadCount})` : "إشعارات", icon: "bell" },
   ];
+
+  function handleAddFlashOffer() {
+    const disc = parseFloat(flashDiscount);
+    if (!flashDesc.trim()) { setFlashError("أضيفي وصفاً للعرض"); return; }
+    if (isNaN(disc) || disc <= 0 || disc > 80) { setFlashError("نسبة الخصم يجب أن تكون بين 1 و80"); return; }
+    const hours = parseFloat(flashHours) || 4;
+    const expires = new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
+    addFlashOffer({
+      providerId: provider?.id || "",
+      providerName: provider?.name || "",
+      providerType: provider?.type || "freelancer",
+      description: flashDesc,
+      discount: disc,
+      expiresAt: expires,
+    });
+    setFlashSuccess(true);
+    setFlashDesc("");
+    setFlashDiscount("");
+    setFlashHours("4");
+    setFlashError("");
+    setTimeout(() => setFlashSuccess(false), 3000);
+  }
+
+  async function pickBeforeAfterPhoto(which: "before" | "after") {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.7,
+    });
+    if (!result.canceled && result.assets[0]) {
+      if (which === "before") setPickedBeforeUri(result.assets[0].uri);
+      else setPickedAfterUri(result.assets[0].uri);
+    }
+  }
 
   return (
     <ScrollView
@@ -336,6 +385,23 @@ export default function ProviderProfileScreen() {
                 <Text style={[styles.availLabel, { color: colors.foreground }]}>حالة التوفر</Text>
                 <Text style={[styles.availDesc, { color: colors.mutedForeground }]}>
                   {provider?.isAvailable ? "أنت متاح لاستقبال الطلبات" : "أنت غير متاح حالياً"}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={[styles.availabilityCard, { backgroundColor: provider?.vacationMode ? "#fff8e1" : colors.card, borderColor: provider?.vacationMode ? "#ff9800" : colors.border }]}>
+            <View style={styles.availabilityRow}>
+              <Switch
+                value={!!provider?.vacationMode}
+                onValueChange={() => { if (provider) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); toggleVacationMode(provider.id); } }}
+                trackColor={{ false: colors.border, true: "#ff9800" }}
+                thumbColor="#fff"
+              />
+              <View style={{ flex: 1, alignItems: "flex-end" }}>
+                <Text style={[styles.availLabel, { color: provider?.vacationMode ? "#e65100" : colors.foreground }]}>🌴 وضع الإجازة</Text>
+                <Text style={[styles.availDesc, { color: colors.mutedForeground }]}>
+                  {provider?.vacationMode ? "أنت في وضع الإجازة — لا يمكن استقبال طلبات" : "فعّلي للتوقف المؤقت عن استقبال الطلبات"}
                 </Text>
               </View>
             </View>
@@ -631,6 +697,22 @@ export default function ProviderProfileScreen() {
           <Text style={[styles.sectionNote, { color: colors.mutedForeground }]}>
             أضف باقات مجمّعة بسعر خاص (مثال: باقة العروس، 3 جلسات شعر)
           </Text>
+
+          <TouchableOpacity
+            style={[styles.urgentToggle, { backgroundColor: provider?.isWeddingSpecialist ? "#9c27b0" + "15" : colors.muted, borderColor: provider?.isWeddingSpecialist ? "#9c27b0" : colors.border }]}
+            onPress={() => updateProvider(provider!.id, { isWeddingSpecialist: !provider?.isWeddingSpecialist })}
+          >
+            <View style={styles.urgentRight}>
+              <Text style={[styles.urgentLabel, { color: provider?.isWeddingSpecialist ? "#9c27b0" : colors.foreground }]}>💍 متخصصة بالمناسبات والزفاف</Text>
+              <Text style={[styles.urgentDesc, { color: colors.mutedForeground }]}>
+                {provider?.isWeddingSpecialist ? "ستظهرين في نتائج طلبات الزفاف والمناسبات الخاصة" : "فعّلي لتظهري في طلبات الأعراس والمناسبات الكبيرة"}
+              </Text>
+            </View>
+            <View style={[styles.urgentToggleBtn, { backgroundColor: provider?.isWeddingSpecialist ? "#9c27b0" : colors.border }]}>
+              <View style={[styles.urgentToggleKnob, { transform: [{ translateX: provider?.isWeddingSpecialist ? 16 : 0 }] }]} />
+            </View>
+          </TouchableOpacity>
+
           {myPackages.length === 0 && (
             <View style={[styles.emptyCustom, { borderColor: colors.border }]}>
               <Feather name="package" size={32} color={colors.mutedForeground} />
@@ -752,6 +834,224 @@ export default function ProviderProfileScreen() {
           ))}
         </>
       )}
+
+      {tab === "earnings" && (() => {
+        const completedJobs = myJobs.filter((r) => r.status === "completed");
+        const totalEarned = completedJobs.reduce((sum, r) => sum + (r.price || 0) * (1 - (provider?.commission || 15) / 100), 0);
+        const totalCommission = completedJobs.reduce((sum, r) => sum + (r.price || 0) * ((provider?.commission || 15) / 100), 0);
+        const weeklyData: { label: string; amount: number }[] = [];
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          const dayLabel = ["أحد", "اثن", "ثلا", "أرب", "خمس", "جمع", "سبت"][d.getDay()];
+          const dayStr = d.toISOString().split("T")[0];
+          const dayAmount = completedJobs
+            .filter((r) => r.scheduledAt?.startsWith(dayStr))
+            .reduce((sum, r) => sum + (r.price || 0) * (1 - (provider?.commission || 15) / 100), 0);
+          weeklyData.push({ label: dayLabel, amount: dayAmount });
+        }
+        const maxBar = Math.max(...weeklyData.map((d) => d.amount), 1);
+        return (
+          <>
+            <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border, gap: 12 }]}>
+              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>ملخص الأرباح</Text>
+              <View style={{ flexDirection: "row", gap: 12, justifyContent: "space-around" }}>
+                <View style={{ alignItems: "center", gap: 4 }}>
+                  <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 22 }}>{totalEarned.toFixed(1)}</Text>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>صافي الأرباح (د.أ)</Text>
+                </View>
+                <View style={{ width: 1, backgroundColor: colors.border }} />
+                <View style={{ alignItems: "center", gap: 4 }}>
+                  <Text style={{ color: "#ff9800", fontFamily: "Inter_700Bold", fontSize: 22 }}>{totalCommission.toFixed(1)}</Text>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>إجمالي العمولات (د.أ)</Text>
+                </View>
+                <View style={{ width: 1, backgroundColor: colors.border }} />
+                <View style={{ alignItems: "center", gap: 4 }}>
+                  <Text style={{ color: colors.success, fontFamily: "Inter_700Bold", fontSize: 22 }}>{completedCount}</Text>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>طلب منجز</Text>
+                </View>
+              </View>
+            </View>
+            <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[styles.sectionTitle, { color: colors.foreground, marginBottom: 16 }]}>الأرباح (آخر ٧ أيام)</Text>
+              <View style={{ flexDirection: "row", alignItems: "flex-end", height: 120, gap: 6, justifyContent: "center" }}>
+                {weeklyData.map((d, i) => (
+                  <View key={i} style={{ alignItems: "center", flex: 1, gap: 4 }}>
+                    <Text style={{ color: colors.mutedForeground, fontSize: 10, fontFamily: "Inter_400Regular" }}>{d.amount > 0 ? d.amount.toFixed(0) : ""}</Text>
+                    <View style={{ width: "100%", height: Math.max((d.amount / maxBar) * 100, 2), backgroundColor: d.amount > 0 ? colors.primary : colors.border, borderRadius: 6 }} />
+                    <Text style={{ color: colors.mutedForeground, fontSize: 10, fontFamily: "Inter_400Regular" }}>{d.label}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+            <Text style={[styles.sectionTitle, { color: colors.foreground, marginBottom: 12 }]}>الطلبات المكتملة</Text>
+            {completedJobs.length === 0 && (
+              <View style={[styles.emptyCustom, { borderColor: colors.border }]}>
+                <Feather name="bar-chart-2" size={32} color={colors.mutedForeground} />
+                <Text style={[styles.emptyCustomText, { color: colors.mutedForeground }]}>لا توجد طلبات مكتملة بعد</Text>
+              </View>
+            )}
+            {completedJobs.map((r) => (
+              <View key={r.id} style={[styles.customSvcRow, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: "column", alignItems: "flex-end", gap: 8 }]}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%" }}>
+                  <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular" }}>{r.scheduledAt?.split("T")[0]}</Text>
+                  <Text style={{ color: colors.primary, fontSize: 14, fontFamily: "Inter_700Bold" }}>{r.price ? `${(r.price * (1 - (provider?.commission || 15) / 100)).toFixed(1)} د.أ` : "—"}</Text>
+                </View>
+                <Text style={{ color: colors.foreground, fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "right" }}>{r.serviceName}</Text>
+                <View style={{ flexDirection: "row", gap: 10, alignItems: "center", width: "100%", justifyContent: "space-between" }}>
+                  <View style={{ flexDirection: "row", gap: 6 }}>
+                    {r.afterPhotoUri && (
+                      <Image source={{ uri: r.afterPhotoUri }} style={{ width: 50, height: 50, borderRadius: 8, borderWidth: 2, borderColor: colors.success }} />
+                    )}
+                    {r.beforePhotoUri && (
+                      <Image source={{ uri: r.beforePhotoUri }} style={{ width: 50, height: 50, borderRadius: 8, borderWidth: 2, borderColor: "#ff9800" }} />
+                    )}
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.addSvcBtn, { backgroundColor: colors.primary + "20", paddingHorizontal: 10 }]}
+                    onPress={() => { setBeforeAfterOrderId(r.id); setPickedBeforeUri(r.beforePhotoUri || null); setPickedAfterUri(r.afterPhotoUri || null); }}
+                  >
+                    <Feather name="camera" size={13} color={colors.primary} />
+                    <Text style={[styles.addSvcBtnText, { color: colors.primary }]}>قبل/بعد</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </>
+        );
+      })()}
+
+      {beforeAfterOrderId && (
+        <Modal visible animationType="slide" transparent onRequestClose={() => setBeforeAfterOrderId(null)}>
+          <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setBeforeAfterOrderId(null)}>
+            <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+              <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
+                <Text style={[styles.modalTitle, { color: colors.foreground }]}>صور قبل وبعد</Text>
+                <View style={{ flexDirection: "row", gap: 12, marginBottom: 16 }}>
+                  <View style={{ flex: 1, alignItems: "center", gap: 8 }}>
+                    <Text style={{ color: "#ff9800", fontFamily: "Inter_700Bold", fontSize: 13 }}>قبل</Text>
+                    {pickedBeforeUri ? (
+                      <Image source={{ uri: pickedBeforeUri }} style={{ width: 120, height: 120, borderRadius: 12, borderWidth: 2, borderColor: "#ff9800" }} />
+                    ) : (
+                      <View style={{ width: 120, height: 120, borderRadius: 12, backgroundColor: colors.muted, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#ff9800", borderStyle: "dashed" }}>
+                        <Feather name="camera" size={28} color={colors.mutedForeground} />
+                      </View>
+                    )}
+                    <TouchableOpacity style={[styles.addSvcBtn, { backgroundColor: "#ff9800" }]} onPress={() => pickBeforeAfterPhoto("before")}>
+                      <Feather name="upload" size={13} color="#fff" />
+                      <Text style={styles.addSvcBtnText}>رفع</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={{ flex: 1, alignItems: "center", gap: 8 }}>
+                    <Text style={{ color: colors.success, fontFamily: "Inter_700Bold", fontSize: 13 }}>بعد</Text>
+                    {pickedAfterUri ? (
+                      <Image source={{ uri: pickedAfterUri }} style={{ width: 120, height: 120, borderRadius: 12, borderWidth: 2, borderColor: colors.success }} />
+                    ) : (
+                      <View style={{ width: 120, height: 120, borderRadius: 12, backgroundColor: colors.muted, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: colors.success, borderStyle: "dashed" }}>
+                        <Feather name="camera" size={28} color={colors.mutedForeground} />
+                      </View>
+                    )}
+                    <TouchableOpacity style={[styles.addSvcBtn, { backgroundColor: colors.success }]} onPress={() => pickBeforeAfterPhoto("after")}>
+                      <Feather name="upload" size={13} color="#fff" />
+                      <Text style={styles.addSvcBtnText}>رفع</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={[styles.topupSubmitBtn, { backgroundColor: colors.primary }]}
+                  onPress={() => { setBeforeAfterPhotos(beforeAfterOrderId, pickedBeforeUri || undefined, pickedAfterUri || undefined); setBeforeAfterOrderId(null); }}
+                >
+                  <Text style={styles.topupSubmitText}>حفظ الصور</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setBeforeAfterOrderId(null)} style={{ marginTop: 8, alignItems: "center" }}>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13 }}>إلغاء</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Modal>
+      )}
+
+      {tab === "flash" && (() => {
+        const myFlash = flashOffers.filter((fo) => fo.providerId === provider?.id);
+        return (
+          <>
+            <Text style={[styles.sectionTitle, { color: colors.foreground, marginBottom: 4 }]}>العروض الحصرية</Text>
+            <Text style={[styles.sectionNote, { color: colors.mutedForeground, marginBottom: 16 }]}>أطلقي عرضاً لفترة محدودة — سيظهر للعملاء في الشاشة الرئيسية</Text>
+            <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border, gap: 10 }]}>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>وصف العرض</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+                value={flashDesc}
+                onChangeText={setFlashDesc}
+                placeholder="مثال: خصم خاص على الشعر لعيد الأم..."
+                placeholderTextColor={colors.mutedForeground}
+                textAlign="right"
+              />
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.fieldLabel, { color: colors.foreground }]}>مدة العرض (ساعات)</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+                    value={flashHours}
+                    onChangeText={setFlashHours}
+                    keyboardType="numeric"
+                    placeholder="4"
+                    placeholderTextColor={colors.mutedForeground}
+                    textAlign="right"
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.fieldLabel, { color: colors.foreground }]}>نسبة الخصم %</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+                    value={flashDiscount}
+                    onChangeText={setFlashDiscount}
+                    keyboardType="numeric"
+                    placeholder="20"
+                    placeholderTextColor={colors.mutedForeground}
+                    textAlign="right"
+                  />
+                </View>
+              </View>
+              {flashError !== "" && <Text style={{ color: colors.destructive, fontSize: 12, textAlign: "right", fontFamily: "Inter_400Regular" }}>{flashError}</Text>}
+              {flashSuccess && <Text style={{ color: colors.success, fontSize: 13, textAlign: "right", fontFamily: "Inter_700Bold" }}>✓ تم إطلاق العرض بنجاح!</Text>}
+              <TouchableOpacity style={[styles.topupSubmitBtn, { backgroundColor: "#ff9800" }]} onPress={handleAddFlashOffer}>
+                <Feather name="zap" size={18} color="#fff" />
+                <Text style={styles.topupSubmitText}>إطلاق العرض</Text>
+              </TouchableOpacity>
+            </View>
+            {myFlash.length > 0 && (
+              <>
+                <Text style={[styles.sectionTitle, { color: colors.foreground, marginTop: 16, marginBottom: 12 }]}>عروضي السابقة</Text>
+                {myFlash.map((fo) => {
+                  const expired = new Date(fo.expiresAt) <= new Date();
+                  return (
+                    <View key={fo.id} style={[styles.customSvcRow, { backgroundColor: colors.card, borderColor: fo.isActive && !expired ? "#ff9800" : colors.border }]}>
+                      <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
+                        {fo.isActive && !expired ? (
+                          <TouchableOpacity style={{ backgroundColor: colors.destructive + "20", borderRadius: 8, padding: 6 }} onPress={() => deactivateFlashOffer(fo.id)}>
+                            <Feather name="x" size={14} color={colors.destructive} />
+                          </TouchableOpacity>
+                        ) : null}
+                        <View style={{ backgroundColor: (fo.isActive && !expired) ? "#ff9800" : colors.muted, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 }}>
+                          <Text style={{ color: (fo.isActive && !expired) ? "#fff" : colors.mutedForeground, fontFamily: "Inter_700Bold", fontSize: 13 }}>-{fo.discount}٪</Text>
+                        </View>
+                      </View>
+                      <View style={{ flex: 1, alignItems: "flex-end", gap: 3 }}>
+                        <Text style={{ color: colors.foreground, fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "right" }}>{fo.description}</Text>
+                        <Text style={{ color: expired ? colors.destructive : colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular" }}>
+                          {expired ? "منتهي" : `ينتهي: ${new Date(fo.expiresAt).toLocaleDateString("ar-EG")}`}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </>
+            )}
+          </>
+        );
+      })()}
 
       <Modal
         visible={showAddSvcModal}
@@ -1376,4 +1676,10 @@ const styles = StyleSheet.create({
   customSvcPrice: { fontSize: 14, fontFamily: "Inter_700Bold" },
   customSvcDur: { fontSize: 12, fontFamily: "Inter_400Regular" },
   addSvcPriceRow: { flexDirection: "row", gap: 12 },
+  urgentToggle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 14, borderRadius: 14, borderWidth: 1.5, gap: 10 },
+  urgentRight: { flex: 1, alignItems: "flex-end", gap: 4 },
+  urgentLabel: { fontSize: 14, fontFamily: "Inter_700Bold" },
+  urgentDesc: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "right", lineHeight: 18 },
+  urgentToggleBtn: { width: 40, height: 24, borderRadius: 12, justifyContent: "center", paddingHorizontal: 2 },
+  urgentToggleKnob: { width: 20, height: 20, borderRadius: 10, backgroundColor: "#fff" },
 });

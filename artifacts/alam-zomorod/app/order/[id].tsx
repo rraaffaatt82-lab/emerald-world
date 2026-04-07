@@ -45,6 +45,7 @@ export default function OrderDetailScreen() {
 
   const [confirmOffer, setConfirmOffer] = useState<{ offerId: string; providerName: string } | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showCompare, setShowCompare] = useState(false);
 
   if (!order) {
     return (
@@ -169,6 +170,15 @@ export default function OrderDetailScreen() {
           <Text style={[styles.offersHint, { color: colors.mutedForeground }]}>
             اختاري العرض المناسب — معلومات الاتصال تظهر بعد القبول
           </Text>
+          {pendingOffers.length >= 2 && (
+            <TouchableOpacity
+              style={[styles.compareBtn, { backgroundColor: colors.primary + "15", borderColor: colors.primary + "40" }]}
+              onPress={() => setShowCompare(true)}
+            >
+              <Feather name="columns" size={15} color={colors.primary} />
+              <Text style={[styles.compareBtnText, { color: colors.primary }]}>مقارنة العروض</Text>
+            </TouchableOpacity>
+          )}
           {pendingOffers.map((offer) => {
             const providerData = PROVIDERS_DATA.find((p) => p.id === offer.providerId);
             const avatarColor = providerData?.avatarColor || colors.primary;
@@ -345,6 +355,58 @@ export default function OrderDetailScreen() {
         </TouchableOpacity>
       </Modal>
 
+      <Modal visible={showCompare} transparent animationType="slide" onRequestClose={() => setShowCompare(false)}>
+        <TouchableOpacity style={styles.confirmOverlay} activeOpacity={1} onPress={() => setShowCompare(false)}>
+          <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+            <View style={[styles.compareModal, { backgroundColor: colors.card }]}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <TouchableOpacity onPress={() => setShowCompare(false)}><Feather name="x" size={22} color={colors.mutedForeground} /></TouchableOpacity>
+                <Text style={[styles.confirmTitle, { color: colors.foreground }]}>مقارنة العروض</Text>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: "row" }}>
+                {pendingOffers.slice(0, 3).map((offer) => (
+                  <View key={offer.id} style={[styles.compareColumn, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+                    <View style={[styles.compareAvatar, { backgroundColor: PROVIDERS_DATA.find((p) => p.id === offer.providerId)?.avatarColor || colors.primary }]}>
+                      <Text style={{ color: "#fff", fontFamily: "Inter_700Bold", fontSize: 16 }}>{getInitials(offer.providerName)}</Text>
+                    </View>
+                    <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 13, textAlign: "center" }} numberOfLines={1}>
+                      {offer.providerFirstName || offer.providerName.split(" ")[0]}
+                    </Text>
+                    <View style={{ alignItems: "center", gap: 3 }}>
+                      <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 22 }}>{offer.price}</Text>
+                      <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular" }}>د.أ</Text>
+                    </View>
+                    <View style={{ alignItems: "center", gap: 2 }}>
+                      <StarRating rating={offer.providerRating} size={12} />
+                      <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular" }}>{offer.providerRating}</Text>
+                    </View>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                      <Feather name="clock" size={12} color={colors.mutedForeground} />
+                      <Text style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_400Regular" }}>{offer.eta} د</Text>
+                    </View>
+                    {offer.isVerified && (
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                        <Feather name="shield" size={12} color={colors.success} />
+                        <Text style={{ color: colors.success, fontSize: 11, fontFamily: "Inter_600SemiBold" }}>موثقة</Text>
+                      </View>
+                    )}
+                    <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular" }}>
+                      {offer.providerType === "salon" ? "صالون" : "صبايا زمرد"}
+                    </Text>
+                    <TouchableOpacity
+                      style={{ backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, marginTop: 6 }}
+                      onPress={() => { setShowCompare(false); handleAcceptOffer(offer.id, offer.providerName); }}
+                    >
+                      <Text style={{ color: "#fff", fontFamily: "Inter_700Bold", fontSize: 12 }}>اقبلي</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
       <Modal visible={showCancelConfirm} transparent animationType="fade" onRequestClose={() => setShowCancelConfirm(false)}>
         <TouchableOpacity style={styles.confirmOverlay} activeOpacity={1} onPress={() => setShowCancelConfirm(false)}>
           <TouchableOpacity activeOpacity={1} style={[styles.confirmBox, { backgroundColor: colors.card }]} onPress={(e) => e.stopPropagation()}>
@@ -435,6 +497,11 @@ const styles = StyleSheet.create({
   chatBtnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_700Bold" },
   chatOfferBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1.5, gap: 6 },
   chatOfferBtnText: { fontSize: 14, fontFamily: "Inter_700Bold" },
+  compareBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 10, borderRadius: 12, borderWidth: 1, gap: 6, marginBottom: 6 },
+  compareBtnText: { fontSize: 14, fontFamily: "Inter_700Bold" },
+  compareModal: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 34 },
+  compareColumn: { width: 140, borderRadius: 16, borderWidth: 1, padding: 14, gap: 10, alignItems: "center", marginRight: 10 },
+  compareAvatar: { width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center" },
   confirmOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", padding: 24 },
   confirmBox: { borderRadius: 20, padding: 24, width: "100%", gap: 12 },
   confirmTitle: { fontSize: 18, fontFamily: "Inter_700Bold", textAlign: "center" },

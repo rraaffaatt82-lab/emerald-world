@@ -25,7 +25,7 @@ export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { addToFavorites, favorites, getRequestsByCustomer, notifications } = useData();
+  const { addToFavorites, favorites, getRequestsByCustomer, notifications, flashOffers } = useData();
   const [search, setSearch] = useState("");
 
   const unreadCount = notifications.filter((n) => n.role === "customer" && !n.isRead).length;
@@ -171,6 +171,26 @@ export default function HomeScreen() {
           <Feather name="map-pin" size={32} color="rgba(255,255,255,0.8)" />
         </View>
       </TouchableOpacity>
+
+      {flashOffers.filter((fo) => fo.isActive && new Date(fo.expiresAt) > new Date()).length > 0 && (
+        <View style={[styles.flashBannerWrap, { backgroundColor: "#fff3e0", borderColor: "#ff9800" }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <Feather name="zap" size={18} color="#ff9800" />
+            <Text style={{ fontFamily: "Inter_700Bold", fontSize: 14, color: "#e65100" }}>عروض حصرية لفترة محدودة</Text>
+          </View>
+          {flashOffers.filter((fo) => fo.isActive && new Date(fo.expiresAt) > new Date()).slice(0, 3).map((fo) => (
+            <View key={fo.id} style={[styles.flashItem, { backgroundColor: "#fff8e1", borderColor: "#ffcc02" }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: "Inter_700Bold", fontSize: 13, color: "#bf360c", textAlign: "right" }}>{fo.providerName}</Text>
+                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: "#e65100", textAlign: "right" }}>{fo.description}</Text>
+              </View>
+              <View style={{ backgroundColor: "#ff9800", borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4, marginRight: 8 }}>
+                <Text style={{ color: "#fff", fontFamily: "Inter_700Bold", fontSize: 14 }}>-{fo.discount}٪</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
 
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
@@ -394,5 +414,20 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 15,
     fontFamily: "Inter_400Regular",
+  },
+  flashBannerWrap: {
+    borderRadius: 16,
+    borderWidth: 1.5,
+    padding: 14,
+    marginBottom: 20,
+    gap: 8,
+  },
+  flashItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 10,
+    marginBottom: 4,
   },
 });

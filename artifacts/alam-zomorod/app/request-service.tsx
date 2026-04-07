@@ -56,6 +56,8 @@ export default function RequestServiceScreen() {
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [couponError, setCouponError] = useState("");
   const [isUrgent, setIsUrgent] = useState(false);
+  const [isWeddingRequest, setIsWeddingRequest] = useState(false);
+  const [preferredTime, setPreferredTime] = useState("");
 
   async function detectLocation() {
     setDetectingLocation(true);
@@ -143,6 +145,8 @@ export default function RequestServiceScreen() {
         couponCode: appliedCoupon?.code || undefined,
         isUrgent,
         urgentFee: isUrgent ? systemSettings.urgentFeeAmount : undefined,
+        isWeddingRequest: isWeddingRequest || undefined,
+        preferredTime: preferredTime.trim() || undefined,
       });
     });
     setSubmitting(false);
@@ -377,6 +381,34 @@ export default function RequestServiceScreen() {
                 <View style={[styles.urgentToggleKnob, { transform: [{ translateX: isUrgent ? 16 : 0 }] }]} />
               </View>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.urgentToggle, { backgroundColor: isWeddingRequest ? "#9c27b0" + "15" : colors.muted, borderColor: isWeddingRequest ? "#9c27b0" : colors.border }]}
+              onPress={() => setIsWeddingRequest((v) => !v)}
+            >
+              <View style={styles.urgentRight}>
+                <Text style={[styles.urgentLabel, { color: isWeddingRequest ? "#9c27b0" : colors.foreground }]}>💍 طلب زفاف أو مناسبة</Text>
+                <Text style={[styles.urgentDesc, { color: colors.mutedForeground }]}>
+                  {isWeddingRequest ? "سيتم إعلام المزودات المتخصصات بالمناسبات" : "للأعراس والمناسبات الكبيرة — تواصلي مع متخصصات"}
+                </Text>
+              </View>
+              <View style={[styles.urgentToggleBtn, { backgroundColor: isWeddingRequest ? "#9c27b0" : colors.border }]}>
+                <View style={[styles.urgentToggleKnob, { transform: [{ translateX: isWeddingRequest ? 16 : 0 }] }]} />
+              </View>
+            </TouchableOpacity>
+
+            <Text style={[styles.fieldLabel, { color: colors.foreground }]}>وقت مفضل للتنفيذ (اختياري)</Text>
+            <View style={[styles.couponInputWrap, { backgroundColor: colors.muted, borderColor: colors.border, marginBottom: 4 }]}>
+              <Feather name="clock" size={16} color={colors.mutedForeground} />
+              <TextInput
+                style={[styles.couponInput, { color: colors.foreground }]}
+                value={preferredTime}
+                onChangeText={setPreferredTime}
+                placeholder="مثال: بعد الساعة ٣ عصراً..."
+                placeholderTextColor={colors.mutedForeground}
+                textAlign="right"
+              />
+            </View>
 
             <Text style={[styles.fieldLabel, { color: colors.foreground }]}>كود الخصم (اختياري)</Text>
             <View style={styles.couponRow}>

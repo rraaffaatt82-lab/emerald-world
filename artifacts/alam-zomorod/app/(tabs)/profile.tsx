@@ -19,13 +19,20 @@ import { STRINGS } from "@/constants/strings";
 import { Badge } from "@/components/ui/Badge";
 import { useData } from "@/context/DataContext";
 
-type ActiveModal = "none" | "edit" | "phone" | "favorites" | "help" | "about" | "logout_confirm" | "addresses";
+type ActiveModal = "none" | "edit" | "phone" | "favorites" | "help" | "about" | "logout_confirm" | "addresses" | "giftcards" | "referral" | "beautypass" | "language";
 
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user, logout, updateUser } = useAuth();
-  const { favorites, removeFromFavorites, providers, getLoyaltyPoints, loyaltyTransactions, systemSettings, redeemLoyaltyPoints, savedAddresses, addSavedAddress, deleteSavedAddress } = useData();
+  const {
+    favorites, removeFromFavorites, providers, getLoyaltyPoints, loyaltyTransactions,
+    systemSettings, redeemLoyaltyPoints, savedAddresses, addSavedAddress, deleteSavedAddress,
+    giftCards, createGiftCard, redeemGiftCard,
+    getReferralCode, referralRecords, applyReferral,
+    BEAUTY_PASS_PLANS, userSubscriptions, subscribeToBeautyPass, getUserSubscription,
+    language, setLanguage,
+  } = useData();
   const [activeModal, setActiveModal] = useState<ActiveModal>("none");
   const [editName, setEditName] = useState(user?.name || "");
   const [newPhone, setNewPhone] = useState("");
@@ -35,6 +42,15 @@ export default function ProfileScreen() {
   const [phoneSaved, setPhoneSaved] = useState(false);
   const [newAddrLabel, setNewAddrLabel] = useState("");
   const [newAddrText, setNewAddrText] = useState("");
+  const [gcAmount, setGcAmount] = useState("");
+  const [gcToPhone, setGcToPhone] = useState("");
+  const [gcToName, setGcToName] = useState("");
+  const [gcRedeemCode, setGcRedeemCode] = useState("");
+  const [gcMsg, setGcMsg] = useState("");
+  const [gcTab, setGcTab] = useState<"create" | "redeem" | "mine">("create");
+  const [refCode, setRefCode] = useState("");
+  const [refMsg, setRefMsg] = useState("");
+  const [bpMsg, setBpMsg] = useState("");
   const webTopPad = Platform.OS === "web" ? 67 : 0;
   const webBottomPad = Platform.OS === "web" ? 34 : 0;
   const myAddresses = savedAddresses.filter((a) => a.customerId === user?.id);
@@ -48,12 +64,21 @@ export default function ProfileScreen() {
     router.replace("/login");
   }
 
+  const myReferralCode = user ? getReferralCode(user.id) : "";
+  const myReferrals = referralRecords.filter((r) => r.referrerId === user?.id?.slice(0, 6).toLowerCase());
+  const myGiftCards = giftCards.filter((gc) => gc.fromUserId === user?.id);
+  const mySub = user ? getUserSubscription(user.id) : undefined;
+
   const menuItems = [
     { icon: "edit-2", label: STRINGS.profile.editProfile, onPress: () => { setEditName(user?.name || ""); setActiveModal("edit"); } },
     { icon: "phone", label: "تعديل رقم الهاتف", onPress: () => { setNewPhone(""); setOtpSent(false); setOtpValue(""); setOtpError(""); setPhoneSaved(false); setActiveModal("phone"); } },
     { icon: "map-pin", label: "دفتر العناوين", badge: myAddresses.length, onPress: () => { setNewAddrLabel(""); setNewAddrText(""); setActiveModal("addresses"); } },
+    { icon: "gift", label: "بطاقات الهدايا", onPress: () => { setGcTab("create"); setGcMsg(""); setGcAmount(""); setGcToPhone(""); setGcToName(""); setActiveModal("giftcards"); } },
+    { icon: "users", label: "ادعي صديقة", badge: myReferrals.length > 0 ? myReferrals.length : undefined, onPress: () => { setRefCode(""); setRefMsg(""); setActiveModal("referral"); } },
+    { icon: "award", label: mySub ? `Beauty Pass — ${mySub.sessionsLeft} جلسة` : "Beauty Pass", onPress: () => { setBpMsg(""); setActiveModal("beautypass"); } },
     { icon: "heart", label: STRINGS.profile.favorites, onPress: () => setActiveModal("favorites") },
     { icon: "bell", label: STRINGS.profile.notifications, onPress: () => router.push("/(tabs)/notifications") },
+    { icon: "globe", label: language === "ar" ? "English" : "عربي", onPress: () => setActiveModal("language") },
     { icon: "help-circle", label: STRINGS.profile.help, onPress: () => setActiveModal("help") },
     { icon: "info", label: STRINGS.profile.about, onPress: () => setActiveModal("about") },
   ];
@@ -527,6 +552,233 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
               </View>
             </ScrollView>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Gift Cards Modal */}
+      <Modal visible={activeModal === "giftcards"} transparent animationType="slide" onRequestClose={() => setActiveModal("none")}>
+        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setActiveModal("none")}>
+          <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+            <View style={[styles.sheet, styles.sheetTall, { backgroundColor: colors.card }]}>
+              <View style={styles.sheetHandle} />
+              <View style={styles.sheetHeader}>
+                <TouchableOpacity onPress={() => setActiveModal("none")}><Feather name="x" size={22} color={colors.mutedForeground} /></TouchableOpacity>
+                <Text style={[styles.sheetTitle, { color: colors.foreground }]}>🎁 بطاقات الهدايا</Text>
+              </View>
+              <View style={{ flexDirection: "row", backgroundColor: colors.muted, borderRadius: 10, padding: 3, marginBottom: 12 }}>
+                {(["create", "redeem", "mine"] as const).map((t) => (
+                  <TouchableOpacity key={t} style={{ flex: 1, padding: 8, borderRadius: 8, backgroundColor: gcTab === t ? colors.card : "transparent", alignItems: "center" }} onPress={() => setGcTab(t)}>
+                    <Text style={{ color: gcTab === t ? colors.primary : colors.mutedForeground, fontFamily: gcTab === t ? "Inter_700Bold" : "Inter_400Regular", fontSize: 12 }}>
+                      {t === "create" ? "إرسال هدية" : t === "redeem" ? "استرداد كود" : "هداياي"}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {gcTab === "create" && (
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  <Text style={[styles.fieldLabel, { color: colors.foreground }]}>قيمة البطاقة (د.أ)</Text>
+                  <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.muted, marginBottom: 10 }]}>
+                    <TextInput style={[styles.input, { color: colors.foreground }]} value={gcAmount} onChangeText={setGcAmount} keyboardType="numeric" placeholder="50" placeholderTextColor={colors.mutedForeground} textAlign="right" />
+                  </View>
+                  <Text style={[styles.fieldLabel, { color: colors.foreground }]}>اسم المستلمة (اختياري)</Text>
+                  <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.muted, marginBottom: 10 }]}>
+                    <TextInput style={[styles.input, { color: colors.foreground }]} value={gcToName} onChangeText={setGcToName} placeholder="نورة، سارة..." placeholderTextColor={colors.mutedForeground} textAlign="right" />
+                  </View>
+                  <Text style={[styles.fieldLabel, { color: colors.foreground }]}>رقم هاتف المستلمة (اختياري)</Text>
+                  <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.muted, marginBottom: 12 }]}>
+                    <TextInput style={[styles.input, { color: colors.foreground }]} value={gcToPhone} onChangeText={setGcToPhone} keyboardType="phone-pad" placeholder="07XXXXXXXX" placeholderTextColor={colors.mutedForeground} textAlign="right" />
+                  </View>
+                  {gcMsg !== "" && <Text style={{ color: gcMsg.includes("تم") ? colors.success : colors.destructive, fontSize: 13, textAlign: "center", marginBottom: 10, fontFamily: "Inter_700Bold" }}>{gcMsg}</Text>}
+                  <TouchableOpacity
+                    style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+                    onPress={() => {
+                      const amt = parseFloat(gcAmount);
+                      if (isNaN(amt) || amt < 10) { setGcMsg("أدخلي قيمة لا تقل عن ١٠ د.أ"); return; }
+                      if (!user) return;
+                      const card = createGiftCard(user.id, user.name || "عميلة", amt, gcToPhone, gcToName);
+                      setGcMsg(`✅ تم إنشاء البطاقة! الكود: ${card.code}`);
+                    }}
+                  >
+                    <Text style={styles.saveBtnText}>إنشاء البطاقة</Text>
+                  </TouchableOpacity>
+                </ScrollView>
+              )}
+              {gcTab === "redeem" && (
+                <View style={{ gap: 12 }}>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13, textAlign: "right" }}>أدخلي كود البطاقة لإضافة قيمتها لمحفظتك</Text>
+                  <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.muted }]}>
+                    <TextInput style={[styles.input, { color: colors.foreground }]} value={gcRedeemCode} onChangeText={setGcRedeemCode} placeholder="GC-XXXXXXX" placeholderTextColor={colors.mutedForeground} textAlign="right" autoCapitalize="characters" />
+                  </View>
+                  {gcMsg !== "" && <Text style={{ color: gcMsg.includes("تم") ? colors.success : colors.destructive, fontSize: 13, textAlign: "center", fontFamily: "Inter_700Bold" }}>{gcMsg}</Text>}
+                  <TouchableOpacity
+                    style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+                    onPress={() => {
+                      if (!user) return;
+                      const result = redeemGiftCard(gcRedeemCode.trim(), user.id, user.name || "");
+                      setGcMsg(result.message);
+                    }}
+                  >
+                    <Text style={styles.saveBtnText}>استرداد البطاقة</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              {gcTab === "mine" && (
+                <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 300 }}>
+                  {myGiftCards.length === 0 ? (
+                    <Text style={{ color: colors.mutedForeground, textAlign: "center", fontFamily: "Inter_400Regular", fontSize: 14, marginTop: 24 }}>لا توجد بطاقات بعد</Text>
+                  ) : (
+                    myGiftCards.map((gc) => (
+                      <View key={gc.id} style={{ backgroundColor: gc.isRedeemed ? colors.muted : colors.primary + "15", borderRadius: 14, padding: 14, marginBottom: 10, gap: 6, borderWidth: 1, borderColor: gc.isRedeemed ? colors.border : colors.primary + "40" }}>
+                        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                          <Text style={{ color: gc.isRedeemed ? colors.mutedForeground : colors.primary, fontFamily: "Inter_700Bold", fontSize: 16 }}>{gc.amount} د.أ</Text>
+                          <Text style={{ fontFamily: "Inter_700Bold", fontSize: 12, color: gc.isRedeemed ? colors.mutedForeground : colors.primary }}>🎁 {gc.code}</Text>
+                        </View>
+                        {gc.toName && <Text style={{ color: colors.mutedForeground, fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "right" }}>لـ: {gc.toName}</Text>}
+                        <Text style={{ color: gc.isRedeemed ? colors.destructive : colors.success, fontSize: 12, fontFamily: "Inter_600SemiBold", textAlign: "right" }}>{gc.isRedeemed ? "مستردة" : "فعّالة — يمكن استخدامها"}</Text>
+                      </View>
+                    ))
+                  )}
+                </ScrollView>
+              )}
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Referral Modal */}
+      <Modal visible={activeModal === "referral"} transparent animationType="slide" onRequestClose={() => setActiveModal("none")}>
+        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setActiveModal("none")}>
+          <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+            <View style={[styles.sheet, { backgroundColor: colors.card }]}>
+              <View style={styles.sheetHandle} />
+              <View style={styles.sheetHeader}>
+                <TouchableOpacity onPress={() => setActiveModal("none")}><Feather name="x" size={22} color={colors.mutedForeground} /></TouchableOpacity>
+                <Text style={[styles.sheetTitle, { color: colors.foreground }]}>👯 ادعي صديقة</Text>
+              </View>
+              <View style={[{ backgroundColor: colors.primary + "10", borderRadius: 16, padding: 16, marginBottom: 16, alignItems: "center", gap: 8, borderWidth: 1, borderColor: colors.primary + "30" }]}>
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 13 }}>كودك الخاص</Text>
+                <Text style={{ color: colors.primary, fontFamily: "Inter_700Bold", fontSize: 24, letterSpacing: 2 }}>{myReferralCode}</Text>
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12, textAlign: "center" }}>شاركيه مع صديقاتك — عند تسجيلهن تحصلين أنت وهن على ١٠٠ نقطة ولاء</Text>
+              </View>
+              {myReferrals.length > 0 && (
+                <View style={{ gap: 6, marginBottom: 12 }}>
+                  <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14, textAlign: "right" }}>صديقاتك ({myReferrals.length})</Text>
+                  {myReferrals.map((r) => (
+                    <View key={r.id} style={{ flexDirection: "row", justifyContent: "space-between", padding: 10, backgroundColor: colors.muted, borderRadius: 10 }}>
+                      <Text style={{ color: colors.success, fontFamily: "Inter_700Bold", fontSize: 12 }}>+{r.rewardPoints} نقطة</Text>
+                      <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold", fontSize: 13 }}>{r.refereeName}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>لديك كود دعوة؟ أدخليه هنا</Text>
+              <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.muted, marginBottom: 10 }]}>
+                <TextInput style={[styles.input, { color: colors.foreground }]} value={refCode} onChangeText={setRefCode} placeholder="AZOM-XXXXXX" placeholderTextColor={colors.mutedForeground} textAlign="right" autoCapitalize="characters" />
+              </View>
+              {refMsg !== "" && <Text style={{ color: refMsg.includes("تم") ? colors.success : colors.destructive, fontSize: 13, textAlign: "center", fontFamily: "Inter_700Bold", marginBottom: 8 }}>{refMsg}</Text>}
+              <TouchableOpacity
+                style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+                onPress={() => {
+                  if (!user) return;
+                  const ok = applyReferral(refCode.trim(), user.id, user.name || "");
+                  setRefMsg(ok ? "✅ تم استخدام كود الدعوة — تمت إضافة ١٠٠ نقطة!" : "الكود غير صحيح أو تم استخدامه مسبقاً");
+                }}
+              >
+                <Text style={styles.saveBtnText}>استخدام الكود</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Beauty Pass Modal */}
+      <Modal visible={activeModal === "beautypass"} transparent animationType="slide" onRequestClose={() => setActiveModal("none")}>
+        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setActiveModal("none")}>
+          <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+            <View style={[styles.sheet, styles.sheetTall, { backgroundColor: colors.card }]}>
+              <View style={styles.sheetHandle} />
+              <View style={styles.sheetHeader}>
+                <TouchableOpacity onPress={() => setActiveModal("none")}><Feather name="x" size={22} color={colors.mutedForeground} /></TouchableOpacity>
+                <Text style={[styles.sheetTitle, { color: colors.foreground }]}>✨ Beauty Pass</Text>
+              </View>
+              {mySub ? (
+                <View style={{ backgroundColor: mySub.planId === "platinum" ? "#607d8b" + "20" : mySub.planId === "gold" ? "#c8a03a20" : "#e91e6320", borderRadius: 16, padding: 16, marginBottom: 16, gap: 8, borderWidth: 1.5, borderColor: mySub.planId === "platinum" ? "#607d8b" : mySub.planId === "gold" ? "#c8a03a" : "#e91e63" }}>
+                  <Text style={{ color: mySub.planId === "platinum" ? "#607d8b" : mySub.planId === "gold" ? "#c8a03a" : "#e91e63", fontFamily: "Inter_700Bold", fontSize: 18, textAlign: "center" }}>✅ {mySub.planName}</Text>
+                  <View style={{ flexDirection: "row", justifyContent: "space-around", marginTop: 8 }}>
+                    <View style={{ alignItems: "center" }}>
+                      <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 24 }}>{mySub.sessionsLeft}</Text>
+                      <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular" }}>جلسات متبقية</Text>
+                    </View>
+                    <View style={{ alignItems: "center" }}>
+                      <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 14 }}>{new Date(mySub.endDate).toLocaleDateString("ar-EG")}</Text>
+                      <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular" }}>تاريخ الانتهاء</Text>
+                    </View>
+                  </View>
+                </View>
+              ) : null}
+              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 350 }}>
+                {BEAUTY_PASS_PLANS.map((plan) => (
+                  <View key={plan.id} style={{ backgroundColor: plan.color + "15", borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1.5, borderColor: plan.color }}>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
+                      <View style={{ backgroundColor: plan.color, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 }}>
+                        <Text style={{ color: "#fff", fontFamily: "Inter_700Bold", fontSize: 16 }}>{plan.price} د.أ/شهر</Text>
+                      </View>
+                      <Text style={{ color: plan.color, fontFamily: "Inter_700Bold", fontSize: 18 }}>{plan.name}</Text>
+                    </View>
+                    {plan.benefits.map((b, i) => (
+                      <View key={i} style={{ flexDirection: "row", gap: 8, marginBottom: 4 }}>
+                        <Feather name="check-circle" size={14} color={plan.color} style={{ marginTop: 2 }} />
+                        <Text style={{ flex: 1, color: colors.foreground, fontFamily: "Inter_400Regular", fontSize: 13, textAlign: "right" }}>{b}</Text>
+                      </View>
+                    ))}
+                    {bpMsg !== "" && <Text style={{ color: bpMsg.includes("تم") ? colors.success : colors.destructive, fontSize: 12, textAlign: "center", fontFamily: "Inter_700Bold", marginTop: 6 }}>{bpMsg}</Text>}
+                    <TouchableOpacity
+                      style={[styles.saveBtn, { backgroundColor: plan.color, marginTop: 10 }]}
+                      onPress={() => {
+                        if (!user) return;
+                        const ok = subscribeToBeautyPass(user.id, plan);
+                        setBpMsg(ok ? `✅ تم الاشتراك في ${plan.name} بنجاح!` : "لديك اشتراك فعّال بالفعل");
+                      }}
+                    >
+                      <Text style={styles.saveBtnText}>{mySub?.planId === plan.id ? "الباقة الحالية" : "اشتركي الآن"}</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Language Modal */}
+      <Modal visible={activeModal === "language"} transparent animationType="fade" onRequestClose={() => setActiveModal("none")}>
+        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setActiveModal("none")}>
+          <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+            <View style={[styles.sheet, { backgroundColor: colors.card }]}>
+              <View style={styles.sheetHandle} />
+              <View style={styles.sheetHeader}>
+                <TouchableOpacity onPress={() => setActiveModal("none")}><Feather name="x" size={22} color={colors.mutedForeground} /></TouchableOpacity>
+                <Text style={[styles.sheetTitle, { color: colors.foreground }]}>اللغة / Language</Text>
+              </View>
+              <View style={{ gap: 10, marginTop: 8 }}>
+                {[{ code: "ar" as const, label: "العربية", sub: "اللغة الافتراضية" }, { code: "en" as const, label: "English", sub: "English Interface" }].map((lang) => (
+                  <TouchableOpacity
+                    key={lang.code}
+                    style={{ flexDirection: "row", alignItems: "center", padding: 16, borderRadius: 14, backgroundColor: language === lang.code ? colors.primary + "15" : colors.muted, borderWidth: 1.5, borderColor: language === lang.code ? colors.primary : colors.border }}
+                    onPress={() => { setLanguage(lang.code); setActiveModal("none"); }}
+                  >
+                    <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: language === lang.code ? colors.primary : colors.border, alignItems: "center", justifyContent: "center", marginLeft: 12 }}>
+                      {language === lang.code && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.primary }} />}
+                    </View>
+                    <View style={{ flex: 1, alignItems: "flex-end" }}>
+                      <Text style={{ color: colors.foreground, fontFamily: "Inter_700Bold", fontSize: 16 }}>{lang.label}</Text>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: "Inter_400Regular", fontSize: 12 }}>{lang.sub}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>

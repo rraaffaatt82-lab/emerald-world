@@ -66,6 +66,67 @@ export interface Provider {
   };
   reminderMinutes?: number;
   workingHours?: WorkingDay[];
+  vacationMode?: boolean;
+  isWeddingSpecialist?: boolean;
+  flashOffers?: string[];
+}
+
+export interface GiftCard {
+  id: string;
+  code: string;
+  amount: number;
+  fromUserId: string;
+  fromUserName: string;
+  toPhone?: string;
+  toName?: string;
+  isRedeemed: boolean;
+  createdAt: string;
+  redeemedAt?: string;
+  redeemedBy?: string;
+}
+
+export interface FlashOffer {
+  id: string;
+  providerId: string;
+  providerName: string;
+  providerType: "salon" | "freelancer";
+  description: string;
+  discount: number;
+  expiresAt: string;
+  createdAt: string;
+  isActive: boolean;
+}
+
+export interface BeautyPassPlan {
+  id: string;
+  name: string;
+  nameEn: string;
+  price: number;
+  sessions: number;
+  validDays: number;
+  color: string;
+  benefits: string[];
+}
+
+export interface UserSubscription {
+  id: string;
+  customerId: string;
+  planId: string;
+  planName: string;
+  price: number;
+  totalSessions: number;
+  sessionsLeft: number;
+  startDate: string;
+  endDate: string;
+}
+
+export interface ReferralRecord {
+  id: string;
+  referrerId: string;
+  refereeId: string;
+  refereeName: string;
+  rewardPoints: number;
+  createdAt: string;
 }
 
 export interface ServiceRequest {
@@ -102,6 +163,11 @@ export interface ServiceRequest {
   giftRecipientName?: string;
   isUrgent?: boolean;
   urgentFee?: number;
+  beforePhotoUri?: string;
+  afterPhotoUri?: string;
+  preferredTime?: string;
+  isWeddingRequest?: boolean;
+  subscriptionId?: string;
 }
 
 export interface ChatMessage {
@@ -331,6 +397,24 @@ interface DataContextType {
   addSavedAddress: (customerId: string, label: string, address: string) => void;
   deleteSavedAddress: (id: string) => void;
   setProviderWorkingHours: (providerId: string, hours: WorkingDay[]) => void;
+  toggleVacationMode: (providerId: string) => void;
+  giftCards: GiftCard[];
+  createGiftCard: (fromUserId: string, fromUserName: string, amount: number, toPhone?: string, toName?: string) => GiftCard;
+  redeemGiftCard: (code: string, customerId: string, customerName: string) => { success: boolean; amount?: number; message: string };
+  flashOffers: FlashOffer[];
+  addFlashOffer: (offer: Omit<FlashOffer, "id" | "createdAt" | "isActive">) => void;
+  deactivateFlashOffer: (id: string) => void;
+  BEAUTY_PASS_PLANS: BeautyPassPlan[];
+  userSubscriptions: UserSubscription[];
+  subscribeToBeautyPass: (customerId: string, plan: BeautyPassPlan) => boolean;
+  getUserSubscription: (customerId: string) => UserSubscription | undefined;
+  useSubscriptionSession: (customerId: string) => boolean;
+  referralRecords: ReferralRecord[];
+  getReferralCode: (userId: string) => string;
+  applyReferral: (code: string, newUserId: string, newUserName: string) => boolean;
+  setBeforeAfterPhotos: (requestId: string, before?: string, after?: string) => void;
+  language: "ar" | "en";
+  setLanguage: (lang: "ar" | "en") => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -588,6 +672,44 @@ const CUSTOM_SVCS_KEY = "azom_custom_svcs";
 const CHAT_KEY = "azom_chat";
 const LOYALTY_KEY = "azom_loyalty";
 const ADDRESSES_KEY = "azom_addresses";
+const GIFT_CARDS_KEY = "azom_giftcards";
+const FLASH_OFFERS_KEY = "azom_flashoffers";
+const SUBSCRIPTIONS_KEY = "azom_subscriptions";
+const REFERRALS_KEY = "azom_referrals";
+const LANGUAGE_KEY = "azom_language";
+
+export const BEAUTY_PASS_PLANS: BeautyPassPlan[] = [
+  {
+    id: "basic",
+    name: "باقة روز",
+    nameEn: "Rose Pass",
+    price: 99,
+    sessions: 3,
+    validDays: 30,
+    color: "#e91e63",
+    benefits: ["٣ جلسات شهرياً", "خصم ١٠٪ على الإضافات", "أولوية في الحجز"],
+  },
+  {
+    id: "gold",
+    name: "باقة زمرد",
+    nameEn: "Emerald Pass",
+    price: 199,
+    sessions: 6,
+    validDays: 30,
+    color: "#c8a03a",
+    benefits: ["٦ جلسات شهرياً", "خصم ١٥٪ على الإضافات", "أولوية مميزة", "إشعارات عروض حصرية"],
+  },
+  {
+    id: "platinum",
+    name: "باقة بلاتينيوم",
+    nameEn: "Platinum Pass",
+    price: 349,
+    sessions: 12,
+    validDays: 30,
+    color: "#607d8b",
+    benefits: ["١٢ جلسة شهرياً", "خصم ٢٠٪ على الإضافات", "أولوية VIP", "استشارة تجميلية مجانية", "بطاقة هدية شهرية"],
+  },
+];
 
 const DEFAULT_SETTINGS: SystemSettings = {
   radiusKm: 10,
@@ -624,6 +746,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [loyaltyTransactions, setLoyaltyTransactions] = useState<LoyaltyTransaction[]>([]);
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [giftCards, setGiftCards] = useState<GiftCard[]>([]);
+  const [flashOffers, setFlashOffers] = useState<FlashOffer[]>([]);
+  const [userSubscriptions, setUserSubscriptions] = useState<UserSubscription[]>([]);
+  const [referralRecords, setReferralRecords] = useState<ReferralRecord[]>([]);
+  const [language, setLanguageState] = useState<"ar" | "en">("ar");
 
   useEffect(() => {
     loadData();
@@ -631,7 +758,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   async function loadData() {
     try {
-      const [favStr, reqStr, provStr, walStr, setStr, notifStr, cpnStr, topStr, pkgStr, csvcStr, chatStr, loyStr, addrStr] = await Promise.all([
+      const [favStr, reqStr, provStr, walStr, setStr, notifStr, cpnStr, topStr, pkgStr, csvcStr, chatStr, loyStr, addrStr, gcStr, foStr, subStr, refStr, langStr] = await Promise.all([
         AsyncStorage.getItem(FAV_KEY),
         AsyncStorage.getItem(REQUESTS_KEY),
         AsyncStorage.getItem(PROVIDERS_KEY),
@@ -645,6 +772,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         AsyncStorage.getItem(CHAT_KEY),
         AsyncStorage.getItem(LOYALTY_KEY),
         AsyncStorage.getItem(ADDRESSES_KEY),
+        AsyncStorage.getItem(GIFT_CARDS_KEY),
+        AsyncStorage.getItem(FLASH_OFFERS_KEY),
+        AsyncStorage.getItem(SUBSCRIPTIONS_KEY),
+        AsyncStorage.getItem(REFERRALS_KEY),
+        AsyncStorage.getItem(LANGUAGE_KEY),
       ]);
       const dedup = <T extends { id: string }>(arr: T[]): T[] => {
         const seen = new Set<string>();
@@ -663,6 +795,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (chatStr) setChatMessages(dedup(JSON.parse(chatStr)));
       if (loyStr) setLoyaltyTransactions(dedup(JSON.parse(loyStr)));
       if (addrStr) setSavedAddresses(dedup(JSON.parse(addrStr)));
+      if (gcStr) setGiftCards(dedup(JSON.parse(gcStr)));
+      if (foStr) setFlashOffers(dedup(JSON.parse(foStr)));
+      if (subStr) setUserSubscriptions(dedup(JSON.parse(subStr)));
+      if (refStr) setReferralRecords(dedup(JSON.parse(refStr)));
+      if (langStr) setLanguageState(JSON.parse(langStr));
     } catch {}
   }
 
@@ -1360,6 +1497,146 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     });
   }, [save]);
 
+  const toggleVacationMode = useCallback((providerId: string) => {
+    setProviders((prev) => {
+      const updated = prev.map((p) => p.id === providerId
+        ? { ...p, vacationMode: !p.vacationMode, isAvailable: p.vacationMode ? true : false }
+        : p);
+      save(PROVIDERS_KEY, updated);
+      return updated;
+    });
+  }, [save]);
+
+  const createGiftCard = useCallback((fromUserId: string, fromUserName: string, amount: number, toPhone?: string, toName?: string): GiftCard => {
+    const code = "GC" + Math.random().toString(36).slice(2, 9).toUpperCase();
+    const card: GiftCard = {
+      id: "gc" + Date.now(),
+      code,
+      amount,
+      fromUserId,
+      fromUserName,
+      toPhone,
+      toName,
+      isRedeemed: false,
+      createdAt: new Date().toISOString(),
+    };
+    setGiftCards((prev) => {
+      const updated = [card, ...prev];
+      save(GIFT_CARDS_KEY, updated);
+      return updated;
+    });
+    return card;
+  }, [save]);
+
+  const redeemGiftCard = useCallback((code: string, customerId: string, customerName: string): { success: boolean; amount?: number; message: string } => {
+    const card = giftCards.find((gc) => gc.code.toUpperCase() === code.toUpperCase() && !gc.isRedeemed);
+    if (!card) return { success: false, message: "الكود غير صحيح أو تم استخدامه مسبقاً" };
+    setGiftCards((prev) => {
+      const updated = prev.map((gc) => gc.id === card.id
+        ? { ...gc, isRedeemed: true, redeemedAt: new Date().toISOString(), redeemedBy: customerId }
+        : gc);
+      save(GIFT_CARDS_KEY, updated);
+      return updated;
+    });
+    addWalletTransaction({ userId: customerId, type: "credit", amount: card.amount, description: `بطاقة هدية من ${card.fromUserName}`, date: new Date().toISOString().split("T")[0] });
+    return { success: true, amount: card.amount, message: `تم إضافة ${card.amount} د.أ إلى محفظتك` };
+  }, [giftCards]);
+
+  const addFlashOffer = useCallback((offer: Omit<FlashOffer, "id" | "createdAt" | "isActive">) => {
+    setFlashOffers((prev) => {
+      const newOffer: FlashOffer = { ...offer, id: "fo" + Date.now(), createdAt: new Date().toISOString(), isActive: true };
+      const updated = [newOffer, ...prev];
+      save(FLASH_OFFERS_KEY, updated);
+      return updated;
+    });
+  }, [save]);
+
+  const deactivateFlashOffer = useCallback((id: string) => {
+    setFlashOffers((prev) => {
+      const updated = prev.map((fo) => fo.id === id ? { ...fo, isActive: false } : fo);
+      save(FLASH_OFFERS_KEY, updated);
+      return updated;
+    });
+  }, [save]);
+
+  const subscribeToBeautyPass = useCallback((customerId: string, plan: BeautyPassPlan): boolean => {
+    const existing = userSubscriptions.find((s) => s.customerId === customerId && new Date(s.endDate) > new Date());
+    if (existing) return false;
+    const start = new Date();
+    const end = new Date(start.getTime() + plan.validDays * 24 * 60 * 60 * 1000);
+    const sub: UserSubscription = {
+      id: "sub" + Date.now(),
+      customerId,
+      planId: plan.id,
+      planName: plan.name,
+      price: plan.price,
+      totalSessions: plan.sessions,
+      sessionsLeft: plan.sessions,
+      startDate: start.toISOString(),
+      endDate: end.toISOString(),
+    };
+    setUserSubscriptions((prev) => {
+      const updated = [...prev, sub];
+      save(SUBSCRIPTIONS_KEY, updated);
+      return updated;
+    });
+    return true;
+  }, [userSubscriptions, save]);
+
+  const getUserSubscription = useCallback((customerId: string): UserSubscription | undefined => {
+    return userSubscriptions.find((s) => s.customerId === customerId && new Date(s.endDate) > new Date());
+  }, [userSubscriptions]);
+
+  const useSubscriptionSession = useCallback((customerId: string): boolean => {
+    const sub = userSubscriptions.find((s) => s.customerId === customerId && new Date(s.endDate) > new Date() && s.sessionsLeft > 0);
+    if (!sub) return false;
+    setUserSubscriptions((prev) => {
+      const updated = prev.map((s) => s.id === sub.id ? { ...s, sessionsLeft: s.sessionsLeft - 1 } : s);
+      save(SUBSCRIPTIONS_KEY, updated);
+      return updated;
+    });
+    return true;
+  }, [userSubscriptions, save]);
+
+  const getReferralCode = useCallback((userId: string): string => {
+    return "AZOM-" + userId.toUpperCase().slice(0, 6);
+  }, []);
+
+  const applyReferral = useCallback((code: string, newUserId: string, newUserName: string): boolean => {
+    const referrerId = code.replace("AZOM-", "").toLowerCase();
+    const alreadyUsed = referralRecords.some((r) => r.refereeId === newUserId);
+    if (alreadyUsed) return false;
+    const record: ReferralRecord = {
+      id: "ref" + Date.now(),
+      referrerId,
+      refereeId: newUserId,
+      refereeName: newUserName,
+      rewardPoints: 100,
+      createdAt: new Date().toISOString(),
+    };
+    setReferralRecords((prev) => {
+      const updated = [...prev, record];
+      save(REFERRALS_KEY, updated);
+      return updated;
+    });
+    return true;
+  }, [referralRecords, save]);
+
+  const setBeforeAfterPhotos = useCallback((requestId: string, before?: string, after?: string) => {
+    setRequests((prev) => {
+      const updated = prev.map((r) => r.id === requestId
+        ? { ...r, ...(before ? { beforePhotoUri: before } : {}), ...(after ? { afterPhotoUri: after } : {}) }
+        : r);
+      save(REQUESTS_KEY, updated);
+      return updated;
+    });
+  }, [save]);
+
+  const setLanguage = useCallback((lang: "ar" | "en") => {
+    setLanguageState(lang);
+    save(LANGUAGE_KEY, lang);
+  }, [save]);
+
   const getRequestsByCustomer = useCallback((userId: string) =>
     requests.filter((r) => r.customerId === userId), [requests]);
 
@@ -1405,6 +1682,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       loyaltyTransactions, getLoyaltyPoints, redeemLoyaltyPoints,
       savedAddresses, addSavedAddress, deleteSavedAddress,
       setProviderWorkingHours,
+      toggleVacationMode,
+      giftCards, createGiftCard, redeemGiftCard,
+      flashOffers, addFlashOffer, deactivateFlashOffer,
+      BEAUTY_PASS_PLANS, userSubscriptions, subscribeToBeautyPass, getUserSubscription, useSubscriptionSession,
+      referralRecords, getReferralCode, applyReferral,
+      setBeforeAfterPhotos,
+      language, setLanguage,
     }}>
       {children}
     </DataContext.Provider>
