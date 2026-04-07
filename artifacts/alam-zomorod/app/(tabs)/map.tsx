@@ -124,7 +124,7 @@ export default function MapScreen() {
                   {selected.isVerified && <Feather name="check-circle" size={14} color={colors.primary} />}
                 </View>
                 <Text style={[styles.cardSub, { color: colors.mutedForeground }]}>
-                  {selected.type === "salon" ? "صالون" : "فريلانسر"} • {selected.city}
+                  {selected.type === "salon" ? "صالون" : "صبايا زمرد"} • {selected.city}
                 </Text>
                 <View style={{ flexDirection: "row", gap: 6, justifyContent: "flex-end", marginTop: 3 }}>
                   <Badge label={`${selected.rating} ★`} color="#ff9800" />

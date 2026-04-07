@@ -200,7 +200,7 @@ export default function OrderDetailScreen() {
                       <View style={styles.providerMeta}>
                         <StarRating rating={offer.providerRating} size={13} />
                         <Text style={[styles.providerMetaText, { color: colors.mutedForeground }]}>
-                          · {offer.providerTotalOrders} طلب · {offer.providerType === "salon" ? "صالون" : "فريلانسر"}
+                          · {offer.providerTotalOrders} طلب · {offer.providerType === "salon" ? "صالون" : "صبايا زمرد"}
                         </Text>
                       </View>
                     </View>

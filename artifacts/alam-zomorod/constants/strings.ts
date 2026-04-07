@@ -29,7 +29,7 @@ export const STRINGS = {
     asProvider: "كمزود خدمة",
     selectRole: "اختر نوع الحساب",
     salon: "صالون",
-    freelancer: "فريلانسر",
+    freelancer: "صبايا زمرد",
     logout: "تسجيل الخروج",
   },
 

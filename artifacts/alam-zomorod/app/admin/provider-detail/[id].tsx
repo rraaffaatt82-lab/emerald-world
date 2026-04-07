@@ -86,7 +86,7 @@ export default function AdminProviderDetailScreen() {
         <View style={styles.profileInfo}>
           <Text style={styles.provName}>{provider.name}</Text>
           <Text style={styles.provMeta}>
-            {provider.type === "salon" ? "🏪 صالون" : "👤 فريلانسر"} · {provider.city || "—"}
+            {provider.type === "salon" ? "🏪 صالون" : "✨ صبايا زمرد"} · {provider.city || "—"}
           </Text>
           <View style={styles.statsRow}>
             <Stat label="طلب" value={provider.totalOrders} />

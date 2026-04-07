@@ -149,7 +149,7 @@ export default function AdminProvidersScreen() {
               onPress={() => setTypeFilter(t)}
             >
               <Text style={[styles.typeBtnText, typeFilter === t && styles.typeBtnTextActive]}>
-                {t === "all" ? "الكل" : t === "salon" ? "صالونات" : "فريلانسر"}
+                {t === "all" ? "الكل" : t === "salon" ? "صالونات" : "صبايا زمرد"}
               </Text>
             </TouchableOpacity>
           ))}
@@ -227,7 +227,7 @@ export default function AdminProvidersScreen() {
                   </View>
                   <View style={styles.provInfo}>
                     <Text style={styles.provName}>{item.name}</Text>
-                    <Text style={styles.provType}>{item.type === "salon" ? "🏪 صالون" : "👤 فريلانسر"} · {item.city || "—"}</Text>
+                    <Text style={styles.provType}>{item.type === "salon" ? "🏪 صالون" : "✨ صبايا زمرد"} · {item.city || "—"}</Text>
                     {item.rating > 0 && <StarRating rating={item.rating} size={12} />}
                   </View>
                 </View>

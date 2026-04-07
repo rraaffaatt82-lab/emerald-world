@@ -1,7 +1,8 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
+  Animated,
   FlatList,
   Image,
   ScrollView,
@@ -24,8 +25,28 @@ export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { addToFavorites, favorites, getRequestsByCustomer } = useData();
+  const { addToFavorites, favorites, getRequestsByCustomer, notifications } = useData();
   const [search, setSearch] = useState("");
+
+  const unreadCount = notifications.filter((n) => n.role === "customer" && !n.isRead).length;
+  const bellShake = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (unreadCount === 0) return;
+    const shakeLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(bellShake, { toValue: -6, duration: 80, useNativeDriver: true }),
+        Animated.timing(bellShake, { toValue: 6, duration: 80, useNativeDriver: true }),
+        Animated.timing(bellShake, { toValue: -5, duration: 70, useNativeDriver: true }),
+        Animated.timing(bellShake, { toValue: 5, duration: 70, useNativeDriver: true }),
+        Animated.timing(bellShake, { toValue: 0, duration: 60, useNativeDriver: true }),
+        Animated.delay(3000),
+      ]),
+      { iterations: -1 }
+    );
+    shakeLoop.start();
+    return () => shakeLoop.stop();
+  }, [unreadCount]);
 
   const myPendingOffers = getRequestsByCustomer(user?.id || "")
     .filter((r) => r.status === "offers_received" && r.offers.filter((o) => o.status === "pending").length > 0)
@@ -68,8 +89,12 @@ export default function HomeScreen() {
           style={[styles.notifBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
           onPress={() => router.push("/(tabs)/notifications")}
         >
-          <Feather name="bell" size={22} color={colors.foreground} />
-          <View style={[styles.notifDot, { backgroundColor: colors.destructive }]} />
+          <Animated.View style={{ transform: [{ translateX: bellShake }] }}>
+            <Feather name="bell" size={22} color={unreadCount > 0 ? colors.primary : colors.foreground} />
+          </Animated.View>
+          {unreadCount > 0 && (
+            <View style={[styles.notifDot, { backgroundColor: colors.destructive }]} />
+          )}
         </TouchableOpacity>
       </View>
 
