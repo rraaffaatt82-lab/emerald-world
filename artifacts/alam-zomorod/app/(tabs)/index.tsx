@@ -3,15 +3,13 @@ import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
-  FlatList,
-  Image,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
@@ -19,7 +17,14 @@ import { useAuth } from "@/context/AuthContext";
 import { useData, CATEGORIES, PROVIDERS } from "@/context/DataContext";
 import { STRINGS } from "@/constants/strings";
 import { ProviderCard } from "@/components/ui/ProviderCard";
-import { Badge } from "@/components/ui/Badge";
+
+// ─── quick-service tiles shown below the hero ────────────────────────────────
+const QUICK_SERVICES = [
+  { id: "q1", label: "عروسات", icon: "heart" as const, color: "#d63a6e" },
+  { id: "q2", label: "مكياج", icon: "star" as const, color: "#c8a03a" },
+  { id: "q3", label: "شعر", icon: "scissors" as const, color: "#7c3aed" },
+  { id: "q4", label: "بشرة", icon: "droplet" as const, color: "#0ea5e9" },
+];
 
 export default function HomeScreen() {
   const colors = useColors();
@@ -54,83 +59,100 @@ export default function HomeScreen() {
 
   const topProviders = PROVIDERS.filter((p) => p.isAvailable).slice(0, 4);
   const filteredProviders = search
-    ? PROVIDERS.filter(
-        (p) =>
-          p.name.includes(search) ||
-          p.bio.includes(search)
-      )
+    ? PROVIDERS.filter((p) => p.name.includes(search) || p.bio.includes(search))
     : topProviders;
 
   const webTopPad = Platform.OS === "web" ? 67 : 0;
   const webBottomPad = Platform.OS === "web" ? 34 : 0;
 
+  const activeFlash = flashOffers.filter((fo) => fo.isActive && new Date(fo.expiresAt) > new Date());
+
+  // initials for avatar
+  const initials = (user?.name || "")
+    .split(" ")
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("");
+
   return (
     <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
+      style={[styles.container, { backgroundColor: "#fff0f7" }]}
       contentContainerStyle={[
         styles.content,
         {
-          paddingTop: insets.top + webTopPad + 10,
+          paddingTop: insets.top + webTopPad,
           paddingBottom: insets.bottom + webBottomPad + 90,
         },
       ]}
       showsVerticalScrollIndicator={false}
     >
-      <View style={styles.header}>
-        <View>
-          <Text style={[styles.greeting, { color: colors.mutedForeground }]}>
-            {STRINGS.home.greeting}
-          </Text>
-          <Text style={[styles.userName, { color: colors.foreground }]}>
-            {user?.name || ""}
-          </Text>
-        </View>
-        <TouchableOpacity
-          style={[styles.notifBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-          onPress={() => router.push("/(tabs)/notifications")}
-        >
-          <Animated.View style={{ transform: [{ translateX: bellShake }] }}>
-            <Feather name="bell" size={22} color={unreadCount > 0 ? colors.primary : colors.foreground} />
-          </Animated.View>
-          {unreadCount > 0 && (
-            <View style={[styles.notifDot, { backgroundColor: colors.destructive }]} />
-          )}
-        </TouchableOpacity>
-      </View>
+      {/* ── HERO HEADER ─────────────────────────────────────────────── */}
+      <View style={[styles.hero, { paddingTop: 14 }]}>
+        {/* decorative blobs */}
+        <View style={styles.blob1} />
+        <View style={styles.blob2} />
 
-      <View
-        style={[
-          styles.searchBar,
-          { backgroundColor: colors.card, borderColor: colors.border },
-        ]}
-      >
-        <Feather name="search" size={20} color={colors.mutedForeground} />
-        <TextInput
-          style={[styles.searchInput, { color: colors.foreground }]}
-          value={search}
-          onChangeText={setSearch}
-          placeholder={STRINGS.home.searchPlaceholder}
-          placeholderTextColor={colors.mutedForeground}
-          textAlign="right"
-        />
-        {search ? (
-          <TouchableOpacity onPress={() => setSearch("")}>
-            <Feather name="x" size={18} color={colors.mutedForeground} />
+        {/* top row */}
+        <View style={styles.heroRow}>
+          {/* notification bell */}
+          <TouchableOpacity
+            style={styles.bellBtn}
+            onPress={() => router.push("/(tabs)/notifications")}
+          >
+            <Animated.View style={{ transform: [{ translateX: bellShake }] }}>
+              <Feather name="bell" size={20} color="#fff" />
+            </Animated.View>
+            {unreadCount > 0 && <View style={styles.bellDot} />}
           </TouchableOpacity>
-        ) : null}
+
+          {/* greeting + avatar */}
+          <View style={styles.heroGreetRow}>
+            <View style={{ alignItems: "flex-end" }}>
+              <Text style={styles.heroGreeting}>مرحباً بك 👋</Text>
+              <Text style={styles.heroName}>{user?.name || ""}</Text>
+            </View>
+            <View style={styles.heroAvatar}>
+              <Text style={styles.heroAvatarText}>{initials}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* tagline */}
+        <Text style={styles.heroTagline}>اكتشفي عالم جمالك من راحة بيتك ✨</Text>
+
+        {/* search bar inside hero */}
+        <View style={styles.heroSearch}>
+          <Feather name="search" size={18} color="#d63a6e" />
+          <TextInput
+            style={styles.heroSearchInput}
+            value={search}
+            onChangeText={setSearch}
+            placeholder="ابحثي عن خدمة أو مزودة..."
+            placeholderTextColor="#c084a0"
+            textAlign="right"
+          />
+          {search ? (
+            <TouchableOpacity onPress={() => setSearch("")}>
+              <Feather name="x" size={16} color="#c084a0" />
+            </TouchableOpacity>
+          ) : null}
+        </View>
       </View>
 
+      {/* ── PENDING OFFERS ALERT ──────────────────────────────────────── */}
       {myPendingOffers.length > 0 && (
-        <View style={[styles.offerAlertCard, { backgroundColor: colors.primary + "12", borderColor: colors.primary + "40" }]}>
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <View style={[styles.offerAlertCard, { backgroundColor: "#fff", borderColor: "#fce4ec" }]}>
+          <View style={styles.offerAlertHeader}>
             <TouchableOpacity onPress={() => router.push("/(tabs)/orders")}>
-              <Text style={[styles.offerAlertSeeAll, { color: colors.primary }]}>عرض الكل</Text>
+              <Text style={styles.offerAlertSeeAll}>عرض الكل</Text>
             </TouchableOpacity>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <View style={[styles.offerAlertBadge, { backgroundColor: colors.primary }]}>
-                <Text style={{ color: "#fff", fontSize: 11, fontFamily: "Inter_700Bold" }}>{myPendingOffers.reduce((s, r) => s + r.offers.filter((o) => o.status === "pending").length, 0)}</Text>
+              <View style={styles.offerAlertBadge}>
+                <Text style={{ color: "#fff", fontSize: 11, fontFamily: "Inter_700Bold" }}>
+                  {myPendingOffers.reduce((s, r) => s + r.offers.filter((o) => o.status === "pending").length, 0)}
+                </Text>
               </View>
-              <Text style={[styles.offerAlertTitle, { color: colors.primary }]}>عروض تنتظر قرارك</Text>
+              <Text style={styles.offerAlertTitle}>عروض تنتظر قرارك</Text>
             </View>
           </View>
           {myPendingOffers.map((req) => {
@@ -139,104 +161,118 @@ export default function HomeScreen() {
             return (
               <TouchableOpacity
                 key={req.id}
-                style={[styles.offerAlertRow, { backgroundColor: colors.card, borderColor: colors.border }]}
+                style={styles.offerAlertRow}
                 onPress={() => router.push({ pathname: "/order/[id]", params: { id: req.id } })}
               >
-                <Feather name="chevron-left" size={16} color={colors.mutedForeground} />
+                <Feather name="chevron-left" size={15} color="#d63a6e" />
                 <View style={{ flex: 1, alignItems: "flex-end", gap: 2 }}>
-                  <Text style={[styles.offerAlertService, { color: colors.foreground }]} numberOfLines={1}>{req.serviceName}</Text>
-                  <Text style={{ color: colors.mutedForeground, fontSize: 11, fontFamily: "Inter_400Regular" }}>
-                    {pendingCount} عرض — أفضل سعر: {bestOffer?.price} د.أ
-                  </Text>
+                  <Text style={styles.offerAlertService} numberOfLines={1}>{req.serviceName}</Text>
+                  <Text style={styles.offerAlertMeta}>{pendingCount} عرض — أفضل سعر: {bestOffer?.price} د.أ</Text>
                 </View>
-                <View style={[styles.offerAlertDot, { backgroundColor: colors.primary }]} />
+                <View style={styles.offerAlertDot} />
               </TouchableOpacity>
             );
           })}
         </View>
       )}
 
+      {/* ── QUICK-SERVICE CHIPS ───────────────────────────────────────── */}
+      <View style={styles.quickRow}>
+        {QUICK_SERVICES.map((qs) => (
+          <TouchableOpacity
+            key={qs.id}
+            style={[styles.quickChip, { backgroundColor: qs.color + "18", borderColor: qs.color + "40" }]}
+            onPress={() => router.push("/request-service")}
+          >
+            <Feather name={qs.icon} size={16} color={qs.color} />
+            <Text style={[styles.quickChipLabel, { color: qs.color }]}>{qs.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* ── HERO REQUEST BANNER ───────────────────────────────────────── */}
       <TouchableOpacity
-        style={[styles.requestBanner, { backgroundColor: colors.primary }]}
+        style={styles.requestBanner}
         onPress={() => router.push("/request-service")}
-        activeOpacity={0.9}
+        activeOpacity={0.92}
       >
-        <View>
-          <Text style={styles.bannerTitle}>{STRINGS.home.requestService}</Text>
-          <Text style={styles.bannerSub}>
-            {STRINGS.home.nearbyProviders}
-          </Text>
+        {/* Decorative ring */}
+        <View style={styles.bannerRing} />
+        <View style={styles.bannerRing2} />
+
+        <View style={{ flex: 1 }}>
+          <Text style={styles.bannerTitle}>اطلبي خدمة الآن</Text>
+          <Text style={styles.bannerSub}>مزودات قريبات منك — وصول خلال 30 دقيقة</Text>
+          <View style={styles.bannerCta}>
+            <Feather name="arrow-left" size={14} color="#fff" />
+            <Text style={styles.bannerCtaText}>ابدئي الآن</Text>
+          </View>
         </View>
-        <View style={styles.bannerIcon}>
-          <Feather name="map-pin" size={32} color="rgba(255,255,255,0.8)" />
+        <View style={styles.bannerIconWrap}>
+          <Feather name="map-pin" size={36} color="rgba(255,255,255,0.9)" />
         </View>
       </TouchableOpacity>
 
-      {flashOffers.filter((fo) => fo.isActive && new Date(fo.expiresAt) > new Date()).length > 0 && (
-        <View style={[styles.flashBannerWrap, { backgroundColor: "#fff3e0", borderColor: "#ff9800" }]}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <Feather name="zap" size={18} color="#ff9800" />
-            <Text style={{ fontFamily: "Inter_700Bold", fontSize: 14, color: "#e65100" }}>عروض حصرية لفترة محدودة</Text>
+      {/* ── FLASH OFFERS ─────────────────────────────────────────────── */}
+      {activeFlash.length > 0 && (
+        <View style={styles.flashSection}>
+          <View style={styles.flashHeader}>
+            <Feather name="zap" size={16} color="#ff6f00" />
+            <Text style={styles.flashTitle}>⚡ عروض حصرية لفترة محدودة</Text>
           </View>
-          {flashOffers.filter((fo) => fo.isActive && new Date(fo.expiresAt) > new Date()).slice(0, 3).map((fo) => (
-            <View key={fo.id} style={[styles.flashItem, { backgroundColor: "#fff8e1", borderColor: "#ffcc02" }]}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: "Inter_700Bold", fontSize: 13, color: "#bf360c", textAlign: "right" }}>{fo.providerName}</Text>
-                <Text style={{ fontFamily: "Inter_400Regular", fontSize: 12, color: "#e65100", textAlign: "right" }}>{fo.description}</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20, paddingHorizontal: 20 }}>
+            {activeFlash.slice(0, 4).map((fo) => (
+              <View key={fo.id} style={styles.flashCard}>
+                <View style={styles.flashBadge}>
+                  <Text style={styles.flashBadgeText}>-{fo.discount}٪</Text>
+                </View>
+                <Text style={styles.flashProvider} numberOfLines={1}>{fo.providerName}</Text>
+                <Text style={styles.flashDesc} numberOfLines={2}>{fo.description}</Text>
               </View>
-              <View style={{ backgroundColor: "#ff9800", borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4, marginRight: 8 }}>
-                <Text style={{ color: "#fff", fontFamily: "Inter_700Bold", fontSize: 14 }}>-{fo.discount}٪</Text>
-              </View>
-            </View>
-          ))}
+            ))}
+          </ScrollView>
         </View>
       )}
 
+      {/* ── CATEGORIES ───────────────────────────────────────────────── */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <TouchableOpacity onPress={() => router.push("/(tabs)/categories")}>
-            <Text style={[styles.seeAll, { color: colors.primary }]}>
-              {STRINGS.home.seeAll}
-            </Text>
+            <Text style={styles.seeAll}>{STRINGS.home.seeAll}</Text>
           </TouchableOpacity>
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            {STRINGS.home.featuredCategories}
-          </Text>
+          <Text style={styles.sectionTitle}>{STRINGS.home.featuredCategories}</Text>
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20, paddingHorizontal: 20 }}>
           {CATEGORIES.slice(0, 6).map((cat) => (
             <TouchableOpacity
               key={cat.id}
-              style={[
-                styles.catItem,
-                { backgroundColor: cat.color + "15" },
-              ]}
-              onPress={() =>
-                router.push({ pathname: "/(tabs)/categories", params: { catId: cat.id } })
-              }
+              style={[styles.catCard, { backgroundColor: "#fff" }]}
+              onPress={() => router.push({ pathname: "/(tabs)/categories", params: { catId: cat.id } })}
             >
-              <View style={[styles.catIcon, { backgroundColor: cat.color + "25" }]}>
-                <Feather name={cat.icon as any} size={22} color={cat.color} />
+              <View style={[styles.catIconWrap, { backgroundColor: cat.color + "20" }]}>
+                <Feather name={cat.icon as any} size={24} color={cat.color} />
               </View>
-              <Text style={[styles.catName, { color: colors.foreground }]}>{cat.name}</Text>
-              <Text style={[styles.catCount, { color: colors.mutedForeground }]}>
-                {cat.servicesCount} خدمة
-              </Text>
+              <Text style={styles.catName}>{cat.name}</Text>
+              <Text style={styles.catCount}>{cat.servicesCount} خدمة</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
       </View>
 
+      {/* ── PROMO STRIP ──────────────────────────────────────────────── */}
+      <TouchableOpacity style={styles.promoStrip} onPress={() => router.push("/(tabs)/profile")}>
+        <Feather name="gift" size={18} color="#c8a03a" />
+        <Text style={styles.promoStripText}>اشتركي في Beauty Pass واحصلي على خصم 20٪ على كل طلب</Text>
+        <Feather name="chevron-left" size={16} color="#c8a03a" />
+      </TouchableOpacity>
+
+      {/* ── NEARBY PROVIDERS ─────────────────────────────────────────── */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <TouchableOpacity>
-            <Text style={[styles.seeAll, { color: colors.primary }]}>
-              {STRINGS.home.seeAll}
-            </Text>
+            <Text style={styles.seeAll}>{STRINGS.home.seeAll}</Text>
           </TouchableOpacity>
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            {STRINGS.home.nearbyProviders}
-          </Text>
+          <Text style={styles.sectionTitle}>{STRINGS.home.nearbyProviders}</Text>
         </View>
         {filteredProviders.map((p) => (
           <ProviderCard
@@ -244,17 +280,13 @@ export default function HomeScreen() {
             provider={p}
             isFavorite={favorites.includes(p.id)}
             onFavorite={() => addToFavorites(p.id)}
-            onPress={() =>
-              router.push({ pathname: "/provider/[id]", params: { id: p.id } })
-            }
+            onPress={() => router.push({ pathname: "/provider/[id]", params: { id: p.id } })}
           />
         ))}
         {filteredProviders.length === 0 && (
           <View style={styles.empty}>
-            <Feather name="search" size={32} color={colors.mutedForeground} />
-            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-              لا توجد نتائج
-            </Text>
+            <Feather name="search" size={32} color="#d6b4c8" />
+            <Text style={[styles.emptyText, { color: "#d6b4c8" }]}>لا توجد نتائج</Text>
           </View>
         )}
       </View>
@@ -264,170 +296,270 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { paddingHorizontal: 20 },
-  header: {
+  content: { gap: 0 },
+
+  // ─── hero ────────────────────────────────────────────────────────
+  hero: {
+    backgroundColor: "#d63a6e",
+    marginHorizontal: 0,
+    paddingHorizontal: 20,
+    paddingBottom: 28,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    overflow: "hidden",
+    gap: 14,
+    marginBottom: 20,
+  },
+  blob1: {
+    position: "absolute",
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    top: -60,
+    left: -50,
+  },
+  blob2: {
+    position: "absolute",
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    bottom: -20,
+    right: 20,
+  },
+  heroRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 20,
   },
-  greeting: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    textAlign: "right",
-  },
-  userName: {
-    fontSize: 20,
-    fontFamily: "Inter_700Bold",
-    textAlign: "right",
-  },
-  notifBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  bellBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "rgba(255,255,255,0.18)",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
   },
-  notifDot: {
+  bellDot: {
     position: "absolute",
-    top: 8,
-    right: 8,
+    top: 7,
+    right: 7,
     width: 9,
     height: 9,
     borderRadius: 5,
+    backgroundColor: "#ffd740",
     borderWidth: 1.5,
-    borderColor: "#fff",
+    borderColor: "#d63a6e",
   },
-  offerAlertCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 14,
-    marginBottom: 18,
-    gap: 8,
-  },
-  offerAlertTitle: { fontSize: 15, fontFamily: "Inter_700Bold" },
-  offerAlertSeeAll: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
-  offerAlertBadge: { width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  offerAlertRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    padding: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  offerAlertService: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
-  offerAlertDot: { width: 8, height: 8, borderRadius: 4 },
-  searchBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 14,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 10,
-    marginBottom: 20,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    fontFamily: "Inter_400Regular",
-  },
-  requestBanner: {
-    borderRadius: 18,
-    padding: 20,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 24,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  bannerTitle: {
-    color: "#fff",
-    fontSize: 18,
-    fontFamily: "Inter_700Bold",
-    textAlign: "right",
-    marginBottom: 4,
-  },
-  bannerSub: {
-    color: "rgba(255,255,255,0.8)",
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-    textAlign: "right",
-  },
-  bannerIcon: {
-    opacity: 0.8,
-  },
-  section: { marginBottom: 24 },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 14,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontFamily: "Inter_700Bold",
-    textAlign: "right",
-  },
-  seeAll: {
-    fontSize: 14,
-    fontFamily: "Inter_600SemiBold",
-  },
-  catScroll: {
-    marginHorizontal: -20,
-    paddingHorizontal: 20,
-  },
-  catItem: {
-    width: 90,
-    padding: 12,
-    borderRadius: 16,
-    alignItems: "center",
-    marginEnd: 12,
-    gap: 6,
-  },
-  catIcon: {
+  heroGreetRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  heroGreeting: { color: "rgba(255,255,255,0.78)", fontSize: 12, fontFamily: "Inter_400Regular" },
+  heroName: { color: "#fff", fontSize: 19, fontFamily: "Inter_700Bold" },
+  heroAvatar: {
     width: 44,
     height: 44,
     borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.22)",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.5)",
     alignItems: "center",
     justifyContent: "center",
   },
-  catName: {
-    fontSize: 12,
-    fontFamily: "Inter_600SemiBold",
-    textAlign: "center",
-  },
-  catCount: {
-    fontSize: 10,
+  heroAvatarText: { color: "#fff", fontSize: 16, fontFamily: "Inter_700Bold" },
+  heroTagline: {
+    color: "rgba(255,255,255,0.88)",
+    fontSize: 13,
     fontFamily: "Inter_400Regular",
+    textAlign: "right",
+    lineHeight: 20,
   },
-  empty: {
-    alignItems: "center",
-    paddingVertical: 40,
-    gap: 10,
-  },
-  emptyText: {
-    fontSize: 15,
-    fontFamily: "Inter_400Regular",
-  },
-  flashBannerWrap: {
-    borderRadius: 16,
-    borderWidth: 1.5,
-    padding: 14,
-    marginBottom: 20,
-    gap: 8,
-  },
-  flashItem: {
+  heroSearch: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 10,
-    borderWidth: 1,
-    padding: 10,
-    marginBottom: 4,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    gap: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
   },
+  heroSearchInput: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular", color: "#1a1a2e" },
+
+  // ─── offer alert ─────────────────────────────────────────────────
+  offerAlertCard: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    padding: 14,
+    gap: 8,
+    shadowColor: "#d63a6e",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  offerAlertHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 },
+  offerAlertTitle: { fontSize: 14, fontFamily: "Inter_700Bold", color: "#d63a6e" },
+  offerAlertSeeAll: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#d63a6e" },
+  offerAlertBadge: {
+    width: 20, height: 20, borderRadius: 10,
+    backgroundColor: "#d63a6e", alignItems: "center", justifyContent: "center",
+  },
+  offerAlertRow: {
+    flexDirection: "row", alignItems: "center", gap: 10,
+    paddingVertical: 8, paddingHorizontal: 12, borderRadius: 12,
+    backgroundColor: "#fff5f8", borderWidth: 1, borderColor: "#fce4ec",
+  },
+  offerAlertService: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#1a1a2e" },
+  offerAlertMeta: { fontSize: 11, fontFamily: "Inter_400Regular", color: "#888" },
+  offerAlertDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#d63a6e" },
+
+  // ─── quick chips ─────────────────────────────────────────────────
+  quickRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginHorizontal: 20,
+    marginBottom: 16,
+    gap: 8,
+  },
+  quickChip: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    paddingVertical: 9,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  quickChipLabel: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+
+  // ─── request banner ───────────────────────────────────────────────
+  requestBanner: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderRadius: 22,
+    padding: 22,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#b5275a",
+    overflow: "hidden",
+    shadowColor: "#d63a6e",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  bannerRing: {
+    position: "absolute",
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    borderWidth: 30,
+    borderColor: "rgba(255,255,255,0.08)",
+    top: -50,
+    left: -40,
+  },
+  bannerRing2: {
+    position: "absolute",
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 20,
+    borderColor: "rgba(255,255,255,0.06)",
+    bottom: -30,
+    right: 60,
+  },
+  bannerTitle: { color: "#fff", fontSize: 19, fontFamily: "Inter_700Bold", textAlign: "right", marginBottom: 4 },
+  bannerSub: { color: "rgba(255,255,255,0.78)", fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "right", marginBottom: 12, lineHeight: 20 },
+  bannerCta: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    backgroundColor: "rgba(255,255,255,0.2)", alignSelf: "flex-end",
+    paddingVertical: 7, paddingHorizontal: 14, borderRadius: 20,
+  },
+  bannerCtaText: { color: "#fff", fontSize: 13, fontFamily: "Inter_700Bold" },
+  bannerIconWrap: {
+    width: 72, height: 72, borderRadius: 36,
+    backgroundColor: "rgba(255,255,255,0.14)",
+    alignItems: "center", justifyContent: "center",
+    marginLeft: 12,
+  },
+
+  // ─── flash offers ─────────────────────────────────────────────────
+  flashSection: { marginBottom: 20, paddingHorizontal: 20 },
+  flashHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 12 },
+  flashTitle: { fontSize: 15, fontFamily: "Inter_700Bold", color: "#bf360c" },
+  flashCard: {
+    width: 150,
+    backgroundColor: "#fff8e1",
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: "#ffcc02",
+    padding: 12,
+    marginRight: 10,
+    gap: 6,
+    overflow: "hidden",
+  },
+  flashBadge: {
+    backgroundColor: "#ff6f00",
+    alignSelf: "flex-end",
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  flashBadgeText: { color: "#fff", fontSize: 13, fontFamily: "Inter_700Bold" },
+  flashProvider: { fontSize: 13, fontFamily: "Inter_700Bold", color: "#bf360c", textAlign: "right" },
+  flashDesc: { fontSize: 11, fontFamily: "Inter_400Regular", color: "#e65100", textAlign: "right", lineHeight: 16 },
+
+  // ─── categories ───────────────────────────────────────────────────
+  section: { marginBottom: 24, paddingHorizontal: 20 },
+  sectionHeader: {
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14,
+  },
+  sectionTitle: { fontSize: 17, fontFamily: "Inter_700Bold", color: "#1a1a2e" },
+  seeAll: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#d63a6e" },
+  catCard: {
+    width: 92,
+    borderRadius: 18,
+    padding: 14,
+    alignItems: "center",
+    marginRight: 10,
+    gap: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  catIconWrap: { width: 50, height: 50, borderRadius: 25, alignItems: "center", justifyContent: "center" },
+  catName: { fontSize: 12, fontFamily: "Inter_600SemiBold", textAlign: "center", color: "#1a1a2e" },
+  catCount: { fontSize: 10, fontFamily: "Inter_400Regular", color: "#888" },
+
+  // ─── promo strip ──────────────────────────────────────────────────
+  promoStrip: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "#fff9ee",
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: "#f0d080",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  promoStripText: {
+    flex: 1, fontSize: 12, fontFamily: "Inter_600SemiBold",
+    color: "#7a5e00", textAlign: "right", lineHeight: 18,
+  },
+
+  // ─── empty ────────────────────────────────────────────────────────
+  empty: { alignItems: "center", paddingVertical: 40, gap: 10 },
+  emptyText: { fontSize: 15, fontFamily: "Inter_400Regular" },
 });
