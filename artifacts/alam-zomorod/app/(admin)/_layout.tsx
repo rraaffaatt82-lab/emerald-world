@@ -8,14 +8,16 @@ import { useData } from "@/context/DataContext";
 
 export default function AdminTabLayout() {
   const { user, isLoading } = useAuth();
-  const { notifications, walletTopupRequests, packages } = useData();
+  const { notifications, walletTopupRequests, packages, providers, customProviderServices } = useData();
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
 
   const unreadAdmin = notifications.filter((n) => n.role === "admin" && !n.isRead).length;
   const pendingTopups = walletTopupRequests.filter((r) => r.status === "pending").length;
   const pendingPackages = packages.filter((p) => p.status === "pending").length;
-  const providerBadge = pendingTopups + pendingPackages;
+  const pendingProviders = providers.filter((p) => p.status === "pending").length;
+  const pendingCustomSvcs = customProviderServices.filter((s: any) => s.status === "pending").length;
+  const providerBadge = pendingTopups + pendingPackages + pendingProviders + pendingCustomSvcs;
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== "admin")) {

@@ -6,6 +6,7 @@ import {
   FlatList,
   Modal,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -21,7 +22,7 @@ type FilterType = "all" | "salon" | "freelancer";
 
 export default function AdminProvidersScreen() {
   const insets = useSafeAreaInsets();
-  const { providers, updateProvider, suspendProvider, walletTopupRequests, approveWalletTopup, rejectWalletTopup } = useData();
+  const { providers, updateProvider, suspendProvider, walletTopupRequests, approveWalletTopup, rejectWalletTopup, packages, approvePackage, rejectPackage, customProviderServices, approveCustomService, rejectCustomService } = useData();
   const [tab, setTab] = useState<FilterTab>("pending");
   const [typeFilter, setTypeFilter] = useState<FilterType>("all");
   const [search, setSearch] = useState("");
@@ -32,11 +33,15 @@ export default function AdminProvidersScreen() {
   const [approveModal, setApproveModal] = useState<{ id: string; name: string } | null>(null);
   const [reactivateModal, setReactivateModal] = useState<{ id: string; name: string } | null>(null);
   const [showTopupRequests, setShowTopupRequests] = useState(false);
+  const [showApprovalsPanel, setShowApprovalsPanel] = useState(false);
   const [cityFilter, setCityFilter] = useState<string>("all");
   const webTopPad = Platform.OS === "web" ? 67 : 0;
   const webBottomPad = Platform.OS === "web" ? 34 : 0;
 
   const pendingTopups = walletTopupRequests.filter((r) => r.status === "pending");
+  const pendingPackagesList = packages.filter((p) => p.status === "pending");
+  const pendingCustomSvcsList = (customProviderServices as any[]).filter((s) => s.status === "pending");
+  const totalPendingApprovals = pendingTopups.length + pendingPackagesList.length + pendingCustomSvcsList.length;
 
   let filtered = tab === "all" ? providers : providers.filter((p) => p.status === tab);
   if (typeFilter !== "all") filtered = filtered.filter((p) => p.type === typeFilter);
@@ -104,13 +109,13 @@ export default function AdminProvidersScreen() {
       <View style={[styles.header, { paddingTop: insets.top + webTopPad + 10 }]}>
         <View style={styles.headerRow}>
           <View style={styles.headerActions}>
-            {pendingTopups.length > 0 && (
+            {totalPendingApprovals > 0 && (
               <TouchableOpacity
-                style={styles.topupBadge}
-                onPress={() => setShowTopupRequests(true)}
+                style={[styles.topupBadge, { backgroundColor: "#f44336" }]}
+                onPress={() => setShowApprovalsPanel(true)}
               >
-                <Feather name="dollar-sign" size={14} color="#000" />
-                <Text style={styles.topupBadgeText}>{pendingTopups.length} شحن</Text>
+                <Feather name="bell" size={14} color="#fff" />
+                <Text style={[styles.topupBadgeText, { color: "#fff" }]}>{totalPendingApprovals} موافقة</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity onPress={() => setShowSearch(!showSearch)} style={styles.searchBtn}>
@@ -341,6 +346,123 @@ export default function AdminProvidersScreen() {
                 <Text style={[styles.suspendBtnText, { color: "#fff" }]}>تأكيد التعليق</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* === Approvals Panel === */}
+      <Modal visible={showApprovalsPanel} transparent animationType="slide" onRequestClose={() => setShowApprovalsPanel(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.topupModal, { maxHeight: "85%" }]}>
+            <View style={styles.topupHeader}>
+              <TouchableOpacity onPress={() => setShowApprovalsPanel(false)}>
+                <Feather name="x" size={22} color="#fff" />
+              </TouchableOpacity>
+              <Text style={styles.topupTitle}>الموافقات المعلقة ({totalPendingApprovals})</Text>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+
+            {pendingPackagesList.length > 0 && (
+              <>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8, marginTop: 4 }}>
+                  <View style={{ height: 1, flex: 1, backgroundColor: "#333" }} />
+                  <Text style={{ color: "#c8a951", fontSize: 13, fontFamily: "Inter_700Bold" }}>باقات خدمات ({pendingPackagesList.length})</Text>
+                  <View style={{ height: 1, flex: 1, backgroundColor: "#333" }} />
+                </View>
+                {pendingPackagesList.map((pkg) => {
+                  const prov = providers.find((p) => p.id === pkg.providerId);
+                  return (
+                    <View key={pkg.id} style={[styles.topupCard, { flexDirection: "column", gap: 6 }]}>
+                      <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <View style={{ alignItems: "flex-end", flex: 1 }}>
+                          <Text style={[styles.topupName, { fontSize: 14 }]}>{pkg.title}</Text>
+                          <Text style={[styles.topupNote, { marginTop: 2 }]}>المزودة: {prov?.name || pkg.providerName}</Text>
+                          {pkg.description ? <Text style={[styles.topupNote, { marginTop: 2, fontStyle: "italic" }]}>{pkg.description}</Text> : null}
+                        </View>
+                        <Text style={[styles.topupAmount, { marginRight: 10 }]}>{pkg.price} د.أ</Text>
+                      </View>
+                      <View style={{ flexDirection: "row-reverse", gap: 6 }}>
+                        {pkg.sessionsCount ? <Text style={{ color: "#888", fontSize: 11, fontFamily: "Inter_400Regular" }}>{pkg.sessionsCount} جلسات</Text> : null}
+                        {pkg.durationMinutes ? <Text style={{ color: "#888", fontSize: 11, fontFamily: "Inter_400Regular" }}>· {pkg.durationMinutes} دقيقة</Text> : null}
+                      </View>
+                      <View style={styles.topupBtns}>
+                        <TouchableOpacity style={[styles.topupActionBtn, { backgroundColor: "#f44336" }]} onPress={() => rejectPackage(pkg.id)}>
+                          <Text style={styles.topupActionText}>رفض</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.topupActionBtn, { backgroundColor: "#4caf50" }]} onPress={() => approvePackage(pkg.id)}>
+                          <Text style={styles.topupActionText}>موافقة</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  );
+                })}
+              </>
+            )}
+
+            {pendingCustomSvcsList.length > 0 && (
+              <>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8, marginTop: 8 }}>
+                  <View style={{ height: 1, flex: 1, backgroundColor: "#333" }} />
+                  <Text style={{ color: "#9c27b0", fontSize: 13, fontFamily: "Inter_700Bold" }}>خدمات مخصصة ({pendingCustomSvcsList.length})</Text>
+                  <View style={{ height: 1, flex: 1, backgroundColor: "#333" }} />
+                </View>
+                {pendingCustomSvcsList.map((svc: any) => {
+                  const prov = providers.find((p) => p.id === svc.providerId);
+                  return (
+                    <View key={svc.id} style={[styles.topupCard, { flexDirection: "column", gap: 6 }]}>
+                      <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <View style={{ alignItems: "flex-end", flex: 1 }}>
+                          <Text style={[styles.topupName, { fontSize: 14 }]}>{svc.name}</Text>
+                          <Text style={[styles.topupNote, { marginTop: 2 }]}>المزودة: {prov?.name || svc.providerId}</Text>
+                          {svc.description ? <Text style={[styles.topupNote, { marginTop: 2, fontStyle: "italic" }]}>{svc.description}</Text> : null}
+                        </View>
+                        {svc.price ? <Text style={[styles.topupAmount, { marginRight: 10 }]}>{svc.price} د.أ</Text> : null}
+                      </View>
+                      <View style={styles.topupBtns}>
+                        <TouchableOpacity style={[styles.topupActionBtn, { backgroundColor: "#f44336" }]} onPress={() => rejectCustomService(svc.id)}>
+                          <Text style={styles.topupActionText}>رفض</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.topupActionBtn, { backgroundColor: "#4caf50" }]} onPress={() => approveCustomService(svc.id)}>
+                          <Text style={styles.topupActionText}>موافقة</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  );
+                })}
+              </>
+            )}
+
+            {pendingTopups.length > 0 && (
+              <>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8, marginTop: 8 }}>
+                  <View style={{ height: 1, flex: 1, backgroundColor: "#333" }} />
+                  <Text style={{ color: "#2196f3", fontSize: 13, fontFamily: "Inter_700Bold" }}>شحن المحفظة ({pendingTopups.length})</Text>
+                  <View style={{ height: 1, flex: 1, backgroundColor: "#333" }} />
+                </View>
+                {pendingTopups.map((req) => (
+                  <View key={req.id} style={styles.topupCard}>
+                    <View style={styles.topupCardInfo}>
+                      <Text style={styles.topupName}>{req.providerName}</Text>
+                      <Text style={styles.topupAmount}>{req.amount} د.أ</Text>
+                      {req.note && <Text style={styles.topupNote}>{req.note}</Text>}
+                    </View>
+                    <View style={styles.topupBtns}>
+                      <TouchableOpacity style={[styles.topupActionBtn, { backgroundColor: "#f44336" }]} onPress={() => rejectWalletTopup(req.id)}>
+                        <Text style={styles.topupActionText}>رفض</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={[styles.topupActionBtn, { backgroundColor: "#4caf50" }]} onPress={() => approveWalletTopup(req.id)}>
+                        <Text style={styles.topupActionText}>موافقة</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </>
+            )}
+
+            {totalPendingApprovals === 0 && (
+              <Text style={styles.emptyText}>لا توجد موافقات معلقة</Text>
+            )}
+            </ScrollView>
           </View>
         </View>
       </Modal>
