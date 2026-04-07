@@ -185,11 +185,19 @@ export default function OtpVerifyScreen() {
         </Text>
 
         {demoCode ? (
-          <View style={[styles.demoBanner, { backgroundColor: "#fff8e1", borderColor: "#c8a03a40" }]}>
-            <Feather name="info" size={14} color="#c8a03a" />
-            <Text style={{ color: "#7a5c00", fontSize: 13, fontFamily: "Inter_600SemiBold", textAlign: "right" }}>
-              رمز تجريبي: <Text style={{ letterSpacing: 3 }}>{demoCode}</Text>
-            </Text>
+          <View style={[styles.demoBanner, { backgroundColor: "#d63a6e15", borderColor: "#d63a6e60" }]}>
+            <View style={{ flex: 1, alignItems: "flex-end", gap: 4 }}>
+              <Text style={{ color: "#8c1040", fontSize: 12, fontFamily: "Inter_400Regular" }}>
+                هذا تطبيق تجريبي — الرمز هو:
+              </Text>
+              <Text style={{ color: "#d63a6e", fontSize: 26, fontFamily: "Inter_700Bold", letterSpacing: 6 }}>
+                {demoCode}
+              </Text>
+              <Text style={{ color: "#8c1040", fontSize: 11, fontFamily: "Inter_400Regular" }}>
+                اكتبيه في المربعات أعلاه
+              </Text>
+            </View>
+            <Feather name="lock" size={22} color="#d63a6e" />
           </View>
         ) : null}
 
