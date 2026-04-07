@@ -11,18 +11,27 @@
     "splash": {
       "image": "./assets/images/icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#1b6b3a"
+      "backgroundColor": "#fff0f7"
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.alamzomorod.beauty"
+      "bundleIdentifier": "com.alamzomorod.beauty",
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
-        "backgroundColor": "#1b6b3a"
+        "backgroundColor": "#fff0f7"
       },
-      "package": "com.alamzomorod.beauty"
+      "package": "com.alamzomorod.beauty",
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.CAMERA"
+      ]
     },
     "web": {
       "favicon": "./assets/images/icon.png"
@@ -35,7 +44,20 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "يحتاج التطبيق الوصول للصور لرفع صور ملفك الشخصي.",
+          "cameraPermission": "يحتاج التطبيق الكاميرا لالتقاط صور."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "يحتاج التطبيق موقعك لإيجاد مزودات الخدمة القريبات."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
