@@ -19,6 +19,8 @@ import { useAuth } from "@/context/AuthContext";
 import { STRINGS } from "@/constants/strings";
 import { sendOtp } from "@/services/otpService";
 
+const DEMO_PHONES = ["1", "2", "3"];
+
 const DEMO_ACCOUNTS = [
   { label: "عميل", desc: "سارة أحمد", phone: "1", icon: "user", color: "#8c1a44" },
   { label: "مزودة خدمة", desc: "نور الجمال", phone: "2", icon: "scissors", color: "#c8a03a" },
@@ -28,12 +30,14 @@ const DEMO_ACCOUNTS = [
 export default function LoginScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { loginByPhone } = useAuth();
   const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
 
   async function handleSendOtp() {
-    if (!phone.trim()) {
+    const trimmed = phone.trim();
+    if (!trimmed) {
       setError("يرجى إدخال رقم الهاتف");
       return;
     }
@@ -41,7 +45,21 @@ export default function LoginScreen() {
     setSending(true);
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    const result = await sendOtp(phone.trim());
+    // Demo phones: skip OTP entirely, login directly
+    if (DEMO_PHONES.includes(trimmed)) {
+      const result = await loginByPhone(trimmed);
+      setSending(false);
+      if (!result.success) {
+        setError(result.error || "تعذّر تسجيل الدخول");
+        return;
+      }
+      if (result.role === "admin") router.replace("/(admin)");
+      else if (result.role === "provider") router.replace("/(provider)/requests");
+      else router.replace("/(tabs)");
+      return;
+    }
+
+    const result = await sendOtp(trimmed);
     setSending(false);
 
     if (!result.success) {
@@ -51,11 +69,7 @@ export default function LoginScreen() {
 
     router.push({
       pathname: "/otp-verify",
-      params: {
-        phone: phone.trim(),
-        mode: "login",
-        demoCode: result.demoCode || "",
-      },
+      params: { phone: trimmed, mode: "login" },
     });
   }
 
@@ -115,11 +129,11 @@ export default function LoginScreen() {
             activeOpacity={0.85}
           >
             {sending ? (
-              <Text style={styles.loginBtnText}>جارٍ إرسال الرمز...</Text>
+              <Text style={styles.loginBtnText}>جارٍ الدخول...</Text>
             ) : (
               <>
-                <Feather name="send" size={18} color="#fff" />
-                <Text style={styles.loginBtnText}>إرسال رمز التحقق</Text>
+                <Feather name="arrow-left" size={18} color="#fff" />
+                <Text style={styles.loginBtnText}>متابعة</Text>
               </>
             )}
           </TouchableOpacity>
@@ -133,14 +147,20 @@ export default function LoginScreen() {
               <TouchableOpacity
                 key={acc.phone}
                 style={[styles.demoItem, { borderColor: acc.color + "30", backgroundColor: acc.color + "08" }]}
-                onPress={() => {
+                onPress={async () => {
                   Haptics.selectionAsync();
-                  setPhone(acc.phone);
                   setError("");
+                  setSending(true);
+                  const result = await loginByPhone(acc.phone);
+                  setSending(false);
+                  if (!result.success) { setError(result.error || "خطأ"); return; }
+                  if (result.role === "admin") router.replace("/(admin)");
+                  else if (result.role === "provider") router.replace("/(provider)/requests");
+                  else router.replace("/(tabs)");
                 }}
               >
                 <View style={styles.demoLeft}>
-                  <Text style={[styles.demoPass, { color: colors.mutedForeground }]}>رقم: {acc.phone}</Text>
+                  <Text style={[styles.demoPass, { color: colors.mutedForeground }]}>اضغط للدخول مباشرة</Text>
                   <Text style={[styles.demoDesc, { color: colors.foreground }]}>{acc.desc}</Text>
                 </View>
                 <View style={[styles.demoBadge, { backgroundColor: acc.color + "15" }]}>
