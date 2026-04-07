@@ -151,6 +151,16 @@ export interface VerifyOtpResult {
 
 export function verifyOtp(phone: string, code: string): VerifyOtpResult {
   const key = phone.trim();
+  const isDemoPhone = ["1", "2", "3"].includes(key) || key.length < 5;
+
+  // Demo phones: always accept the fixed code, no store needed
+  if (isDemoPhone) {
+    if (code.trim() === DEMO_FIXED_CODE) {
+      return { valid: true };
+    }
+    return { valid: false, error: `الرمز التجريبي هو: ${DEMO_FIXED_CODE}` };
+  }
+
   const record = otpStore.get(key);
 
   if (!record) {
