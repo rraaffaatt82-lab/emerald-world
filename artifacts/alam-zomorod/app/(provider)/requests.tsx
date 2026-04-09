@@ -25,7 +25,7 @@ export default function ProviderRequestsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { getPendingOfferRequests, submitOffer, providers, getProviderOffers, requests } = useData();
+  const { getPendingOfferRequests, submitOffer, providers, getProviderOffers, requests, packages } = useData();
   const [filterTab, setFilterTab] = useState<FilterTab>("available");
   const [offerModal, setOfferModal] = useState<{ requestId: string; serviceName: string } | null>(null);
   const [offerPrice, setOfferPrice] = useState("");
@@ -302,7 +302,9 @@ export default function ProviderRequestsScreen() {
                 </Text>
               </View>
 
-              {provider?.packages && provider.packages.length > 0 && (
+              {(() => {
+                const providerPackages = packages.filter(pkg => pkg.providerId === provider?.id && pkg.status === "approved");
+                return providerPackages.length > 0 ? (
                 <>
                   <Text style={[styles.fieldLabel, { color: colors.foreground }]}>إرفاق باقة (اختياري)</Text>
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
@@ -312,7 +314,7 @@ export default function ProviderRequestsScreen() {
                     >
                       <Text style={[styles.etaChipText, { color: !selectedPackageId ? "#fff" : colors.mutedForeground }]}>بدون باقة</Text>
                     </TouchableOpacity>
-                    {provider.packages.map((pkg: any) => {
+                    {providerPackages.map((pkg) => {
                       const active = selectedPackageId === pkg.id;
                       return (
                         <TouchableOpacity
@@ -323,14 +325,15 @@ export default function ProviderRequestsScreen() {
                             setOfferPrice(String(pkg.price));
                           }}
                         >
-                          <Text style={[styles.etaChipText, { color: active ? "#fff" : colors.foreground, fontFamily: "Inter_700Bold" }]} numberOfLines={1}>{pkg.name}</Text>
-                          <Text style={{ color: active ? "#ffffffcc" : colors.mutedForeground, fontSize: 10, fontFamily: "Inter_400Regular" }}>{pkg.price} د.أ · {pkg.sessions} جلسات</Text>
+                          <Text style={[styles.etaChipText, { color: active ? "#fff" : colors.foreground, fontFamily: "Inter_700Bold" }]} numberOfLines={1}>{pkg.title}</Text>
+                          <Text style={{ color: active ? "#ffffffcc" : colors.mutedForeground, fontSize: 10, fontFamily: "Inter_400Regular" }}>{pkg.price} د.أ · {pkg.sessionsCount ?? 1} جلسات</Text>
                         </TouchableOpacity>
                       );
                     })}
                   </View>
                 </>
-              )}
+                ) : null;
+              })()}
 
               <Text style={[styles.fieldLabel, { color: colors.foreground }]}>سعر العرض (د.أ)</Text>
               <View style={[styles.priceInput, { borderColor: offerError ? colors.destructive : colors.border, backgroundColor: colors.muted }]}>

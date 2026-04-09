@@ -21,7 +21,7 @@ function NativeTabLayout() {
         <Label>نشطة</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="calendar">
-        <Icon sf={{ default: "calendar", selected: "calendar.fill" }} />
+        <Icon sf={{ default: "calendar", selected: "calendar" }} />
         <Label>التقويم</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="earnings">

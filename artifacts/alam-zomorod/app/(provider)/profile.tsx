@@ -925,7 +925,7 @@ export default function ProviderProfileScreen() {
         <Modal visible animationType="slide" transparent onRequestClose={() => setBeforeAfterOrderId(null)}>
           <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setBeforeAfterOrderId(null)}>
             <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
-              <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
+              <View style={[styles.modal, { backgroundColor: colors.card }]}>
                 <Text style={[styles.modalTitle, { color: colors.foreground }]}>صور قبل وبعد</Text>
                 <View style={{ flexDirection: "row", gap: 12, marginBottom: 16 }}>
                   <View style={{ flex: 1, alignItems: "center", gap: 8 }}>

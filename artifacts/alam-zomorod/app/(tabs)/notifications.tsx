@@ -172,7 +172,7 @@ export default function NotificationsScreen() {
             <View style={rStyles.handle} />
             <Text style={[rStyles.title, { color: colors.foreground }]}>كيف كانت تجربتك؟</Text>
             <Text style={[rStyles.sub, { color: colors.mutedForeground }]}>تقييمك يساعد الأخريات في الاختيار</Text>
-            <StarRating value={rating} onChange={setRating} size={36} />
+            <StarRating rating={rating} onRate={setRating} size={36} interactive />
             <TextInput
               style={[rStyles.reviewInput, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.muted }]}
               placeholder="شاركي تجربتك بكلمة أو جملة..."

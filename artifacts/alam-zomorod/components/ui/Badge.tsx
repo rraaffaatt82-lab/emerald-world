@@ -9,6 +9,7 @@ interface BadgeProps {
   label: string;
   variant?: BadgeVariant;
   style?: ViewStyle;
+  color?: string;
 }
 
 const VARIANT_COLORS: Record<BadgeVariant, { bg: string; text: string }> = {
@@ -20,13 +21,13 @@ const VARIANT_COLORS: Record<BadgeVariant, { bg: string; text: string }> = {
   outline: { bg: "transparent", text: colors.light.primary },
 };
 
-export function Badge({ label, variant = "default", style }: BadgeProps) {
+export function Badge({ label, variant = "default", style, color }: BadgeProps) {
   const v = VARIANT_COLORS[variant];
   return (
     <View
       style={[
         styles.badge,
-        { backgroundColor: v.bg },
+        { backgroundColor: color ?? v.bg },
         variant === "outline" && {
           borderWidth: 1,
           borderColor: colors.light.primary,
