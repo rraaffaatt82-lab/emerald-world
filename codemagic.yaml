@@ -1,8 +1,6 @@
 workflows:
   ios-workflow:
-    name: iOS Build (IPA)
-
-    max_build_duration: 60
+    name: iOS Build
 
     environment:
       node: latest
@@ -13,16 +11,16 @@ workflows:
         script: |
           npm install
 
-      - name: Expo prebuild (iOS)
+      - name: Expo prebuild (inside Codemagic)
         script: |
-          npx expo prebuild --platform ios
+          npx expo prebuild --platform ios --non-interactive
 
       - name: Install CocoaPods
         script: |
           cd ios
           pod install
 
-      - name: Build iOS Release (IPA)
+      - name: Build iOS
         script: |
           cd ios
           xcodebuild \
@@ -33,4 +31,3 @@ workflows:
 
     artifacts:
       - ios/build/**/*.ipa
-      - ios/build/**/*.xcarchive
