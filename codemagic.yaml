@@ -11,7 +11,7 @@ workflows:
         script: |
           npm install
 
-      - name: Expo prebuild (inside Codemagic)
+      - name: Expo prebuild
         script: |
           npx expo prebuild --platform ios --non-interactive
 
@@ -23,9 +23,10 @@ workflows:
       - name: Build iOS
         script: |
           cd ios
+          SCHEME=$(xcodebuild -list | grep -A 1 "Schemes" | tail -n 1 | xargs)
           xcodebuild \
           -workspace *.xcworkspace \
-          -scheme workspace \
+          -scheme "$SCHEME" \
           -configuration Release \
           -archivePath build/App.xcarchive archive
 
