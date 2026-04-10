@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.alamzomorod.beauty",
+      "bundleIdentifier": "com.emeraldworld.workspace",
       "buildNumber": "1"
     },
     "android": {
@@ -23,7 +23,7 @@
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#fff0f7"
       },
-      "package": "com.alamzomorod.beauty",
+      "package": "com.emeraldworld.workspace",
       "versionCode": 1,
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
@@ -37,12 +37,7 @@
       "favicon": "./assets/images/icon.png"
     },
     "plugins": [
-      [
-        "expo-router",
-        {
-          "origin": "https://replit.com/"
-        }
-      ],
+      "expo-router",
       "expo-font",
       "expo-web-browser",
       [
