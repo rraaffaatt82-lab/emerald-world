@@ -5,7 +5,6 @@ workflows:
 
     environment:
       node: latest
-      xcode: latest
 
     scripts:
       - name: Install dependencies
@@ -16,17 +15,10 @@ workflows:
         script: |
           npm install -g expo-cli
 
-      - name: Prebuild iOS
-        script: |
-          npx expo prebuild --platform ios
-
       - name: Build iOS
         script: |
-          cd ios
-          xcodebuild -workspace *.xcworkspace \
-          -scheme * \
-          -configuration Release \
-          -archivePath build/App.xcarchive archive
+          npx expo prebuild --platform ios
+          npx expo run:ios --no-install
 
     artifacts:
       - ios/build/**/*.ipa
