@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "ab2d0408-233c-40db-ac55-1da45dac21d1"
+      }
+    },
+    "owner": "emeraldworld",
+    "ios": {
+      "bundleIdentifier": "com.emeraldworld.workspace",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.emeraldworld.workspace"
+    }
+  }
+}
