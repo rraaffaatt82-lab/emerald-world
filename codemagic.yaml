@@ -1,24 +1,36 @@
 workflows:
   ios-workflow:
-    name: iOS Build
+    name: iOS Build (IPA)
+
     max_build_duration: 60
 
     environment:
       node: latest
+      xcode: latest
 
     scripts:
       - name: Install dependencies
         script: |
           npm install
 
-      - name: Install Expo CLI
-        script: |
-          npm install -g expo-cli
-
-      - name: Build iOS
+      - name: Expo prebuild (iOS)
         script: |
           npx expo prebuild --platform ios
-          npx expo run:ios --no-install
+
+      - name: Install CocoaPods
+        script: |
+          cd ios
+          pod install
+
+      - name: Build iOS Release (IPA)
+        script: |
+          cd ios
+          xcodebuild \
+          -workspace *.xcworkspace \
+          -scheme workspace \
+          -configuration Release \
+          -archivePath build/App.xcarchive archive
 
     artifacts:
       - ios/build/**/*.ipa
+      - ios/build/**/*.xcarchive
