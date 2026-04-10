@@ -11,7 +11,7 @@ workflows:
         script: |
           npm install
 
-      - name: Expo prebuild
+      - name: Expo prebuild (iOS)
         script: |
           npx expo prebuild --platform ios --non-interactive
 
@@ -20,10 +20,12 @@ workflows:
           cd ios
           pod install
 
-      - name: Build iOS
+      - name: Build iOS (auto detect scheme)
         script: |
           cd ios
           SCHEME=$(xcodebuild -list | grep -A 1 "Schemes" | tail -n 1 | xargs)
+          echo "Using scheme: $SCHEME"
+
           xcodebuild \
           -workspace *.xcworkspace \
           -scheme "$SCHEME" \
@@ -32,3 +34,4 @@ workflows:
 
     artifacts:
       - ios/build/**/*.ipa
+      - ios/build/**/*.xcarchive
