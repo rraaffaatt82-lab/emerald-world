@@ -1,0 +1,54 @@
+workflows:
+  ios-workflow:
+    name: iOS Build (NO SCHEME ISSUES)
+
+    max_build_duration: 60
+
+    environment:
+      node: latest
+      xcode: latest
+      cocoapods: default
+
+    scripts:
+      - name: Install dependencies
+        script: |
+          npm install
+
+      - name: Install Expo CLI
+        script: |
+          npm install -g expo-cli
+
+      - name: Prebuild iOS
+        script: |
+          npx expo prebuild --platform ios --non-interactive
+
+      - name: Install Pods
+        script: |
+          cd ios
+          pod install
+
+      - name: Build IPA using xcodebuild (auto scheme safe)
+        script: |
+          cd ios
+
+          echo "Listing schemes..."
+          xcodebuild -list
+
+          SCHEME=$(xcodebuild -list | awk '/Schemes:/ {getline; print}' | xargs)
+
+          echo "Using scheme: $SCHEME"
+
+          xcodebuild \
+            -workspace *.xcworkspace \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -archivePath build/App.xcarchive archive
+
+          xcodebuild -exportArchive \
+            -archivePath build/App.xcarchive \
+            -exportOptionsPlist /usr/local/share/exportOptions.plist \
+            -exportPath build
+
+    artifacts:
+      - ios/build/**/*.ipa
+      - ios/build/**/*.xcarchive
