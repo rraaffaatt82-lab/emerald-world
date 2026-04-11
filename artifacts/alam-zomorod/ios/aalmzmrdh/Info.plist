@@ -48,13 +48,13 @@
     <key>NSCameraUsageDescription</key>
     <string>يحتاج التطبيق الكاميرا لالتقاط صور.</string>
     <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to access your location</string>
+    <string>يحتاج التطبيق موقعك لإيجاد مزودات الخدمة القريبات منك.</string>
     <key>NSLocationAlwaysUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to access your location</string>
+    <string>يحتاج التطبيق موقعك لإيجاد مزودات الخدمة القريبات منك.</string>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>يحتاج التطبيق موقعك لإيجاد مزودات الخدمة القريبات.</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to access your microphone</string>
+    <string>يحتاج التطبيق الميكروفون لتسجيل الصوت عند الحاجة.</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>يحتاج التطبيق الوصول للصور لرفع صور ملفك الشخصي.</string>
     <key>NSUserActivityTypes</key>
